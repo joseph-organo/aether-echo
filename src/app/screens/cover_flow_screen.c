@@ -14,6 +14,7 @@
 
 enum {
     NO_POSITION = -1,
+    DESIGN_HEIGHT = 170,
     TITLE_TOP = 126,
     ARTIST_TOP = 148,
     LINE_HEIGHT = 20,
@@ -52,6 +53,14 @@ static const CoverFlowLayout LAYOUT = {
     .fade_start = 2 * COVER_FLOW_ONE,
     .fade_end = 2 * COVER_FLOW_ONE + COVER_FLOW_ONE / 2,
 };
+
+static CoverFlowLayout layout_for(const Theme *theme)
+{
+    CoverFlowLayout layout = LAYOUT;
+    layout.center_x = theme->metrics.screen_width / 2;
+    layout.center_top += (theme->metrics.screen_height - DESIGN_HEIGHT) / 2;
+    return layout;
+}
 
 static const Color BACKDROP = COLOR_RGB(0, 0, 0);
 
@@ -391,9 +400,10 @@ static void draw_cover(const CoverFlowScreen *flow, Canvas *canvas, int position
 {
     int32_t relative = (int32_t)position * COVER_FLOW_ONE - flow->position;
     bool stacked = theme_is_portrait(flow->config.theme);
+    const CoverFlowLayout layout = layout_for(flow->config.theme);
     Quad quad =
-        stacked ? cover_flow_stacked_quad(&STACK, relative) : cover_flow_quad(&LAYOUT, relative);
-    QuadLight light = cover_flow_light(&LAYOUT, relative);
+        stacked ? cover_flow_stacked_quad(&STACK, relative) : cover_flow_quad(&layout, relative);
+    QuadLight light = cover_flow_light(&layout, relative);
     if (light.left == 0 && light.right == 0) {
         return;
     }
@@ -441,8 +451,9 @@ static void draw_text(const CoverFlowScreen *flow, Canvas *canvas)
     TextStyle title = {.font = theme->fonts.title, .color = theme->colors.text};
     TextStyle artist = {.font = theme->fonts.body, .color = theme->colors.text_secondary};
     bool stacked = theme_is_portrait(theme);
-    int title_top = stacked ? STACK_TITLE_TOP : TITLE_TOP;
-    int artist_top = stacked ? STACK_ARTIST_TOP : ARTIST_TOP;
+    int shift = (theme->metrics.screen_height - DESIGN_HEIGHT) / 2;
+    int title_top = stacked ? STACK_TITLE_TOP : TITLE_TOP + shift;
+    int artist_top = stacked ? STACK_ARTIST_TOP : ARTIST_TOP + shift;
     draw_line(flow, canvas, (Label){{padding, title_top, width, LINE_HEIGHT}, flow->title}, title);
     draw_line(flow, canvas, (Label){{padding, artist_top, width, LINE_HEIGHT}, flow->artist},
               artist);
