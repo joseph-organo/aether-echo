@@ -139,6 +139,13 @@ void fake_hal_set_version(const char *version)
     fake.version = version;
 }
 
+static uint32_t spare_memory[HAL_SPARE_MEMORY_BYTES / sizeof(uint32_t)];
+
+void *hal_system_spare_memory(void)
+{
+    return spare_memory;
+}
+
 const char *hal_system_version(void)
 {
     return fake.version != NULL ? fake.version : "test";

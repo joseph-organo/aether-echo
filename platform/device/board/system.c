@@ -32,6 +32,14 @@ static void read_tag(void)
     }
 }
 
+static uint32_t spare_memory[HAL_SPARE_MEMORY_BYTES / sizeof(uint32_t)]
+    __attribute__((section(".high_ram")));
+
+void *hal_system_spare_memory(void)
+{
+    return spare_memory;
+}
+
 const char *hal_system_version(void)
 {
     if (!tried) {

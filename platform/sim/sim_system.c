@@ -7,6 +7,13 @@ enum {
 
 static uint32_t clock_mhz = BOOT_CLOCK_MHZ;
 
+static uint32_t spare_memory[HAL_SPARE_MEMORY_BYTES / sizeof(uint32_t)];
+
+void *hal_system_spare_memory(void)
+{
+    return spare_memory;
+}
+
 const char *hal_system_version(void)
 {
     return "simulator";

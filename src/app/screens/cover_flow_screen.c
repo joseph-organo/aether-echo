@@ -469,7 +469,9 @@ static void draw_empty(const Theme *theme, Canvas *canvas)
 
 static void draw_backdrop(const Theme *theme, Canvas *canvas)
 {
-    int floor = theme_is_portrait(theme) ? STACK_FLOOR_TOP : LAYOUT.center_top + LAYOUT.center_size;
+    int floor = theme_is_portrait(theme)
+                    ? STACK_FLOOR_TOP
+                    : layout_for(theme).center_top + LAYOUT.center_size;
     int height = theme->metrics.screen_height;
     canvas_fill_rect(canvas, (Rect){0, 0, theme->metrics.screen_width, floor}, BACKDROP);
     for (int y = floor; y < height; y++) {

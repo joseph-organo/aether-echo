@@ -29,6 +29,7 @@ enum {
     PROGRESS_TOP = 148,
     PROGRESS_HEIGHT = 3,
     TIMES_TOP = 153,
+    LYRICS_TOP = TIMES_TOP + 16 + 3,
     TIME_CAPACITY = 16,
     BADGE_SIZE = 40,
     BADGE_ICON_SIZE = 18,
@@ -353,9 +354,16 @@ static void refresh(NowPlayingScreen *now_playing, uint32_t now_ms)
     bool changed = !now_playing->has_text || now_playing->text_track != now_playing->status.track;
     if (now_playing->status.has_track && changed) {
         load_texts(now_playing, now_playing->status.track);
+        lyrics_view_open(now_playing->lyrics, now_playing->config.library,
+                         now_playing->status.track);
         now_playing->has_text = true;
         now_playing->text_track = now_playing->status.track;
         now_playing->text_changed_ms = now_ms;
+    }
+    if (now_playing->status.has_track) {
+        uint32_t position_ms = now_playing->scrubbing ? now_playing->scrub_position_ms
+                                                      : now_playing->status.position_ms;
+        lyrics_view_follow(now_playing->lyrics, position_ms, now_ms);
     }
 }
 
@@ -480,18 +488,44 @@ static Rect line_area(const Theme *theme, int top, int height)
     return (Rect){padding, top, theme->metrics.screen_width - 2 * padding, height};
 }
 
-static void draw_text_line(const NowPlayingScreen *now_playing, Canvas *canvas, Label label,
-                           TextStyle style)
+static void draw_scrolling_line(const NowPlayingScreen *now_playing, Canvas *canvas, Label label,
+                                TextStyle style, bool centered, uint32_t since_ms)
 {
     int width = text_width(style.font, label.text);
     if (width <= label.area.width) {
-        label_draw(canvas, style, centered_if(layout_of(now_playing).centered, style.font, label));
+        label_draw(canvas, style, centered_if(centered, style.font, label));
         return;
     }
     MarqueeTiming timing = now_playing->config.theme->marquee;
-    uint32_t elapsed = now_playing->now_ms - now_playing->text_changed_ms;
+    uint32_t elapsed = now_playing->now_ms - since_ms;
     int offset = marquee_offset(timing, width, label.area.width, elapsed);
     label_draw_scrolling(canvas, style, label, (Marquee){.offset = offset, .gap = timing.gap_px});
+}
+
+static void draw_text_line(const NowPlayingScreen *now_playing, Canvas *canvas, Label label,
+                           TextStyle style)
+{
+    draw_scrolling_line(now_playing, canvas, label, style, layout_of(now_playing).centered,
+                        now_playing->text_changed_ms);
+}
+
+static void draw_lyrics(const NowPlayingScreen *now_playing, Canvas *canvas)
+{
+    const Theme *theme = now_playing->config.theme;
+    const LyricsView *lyrics = now_playing->lyrics;
+    if (!lyrics_view_ready(lyrics) || theme_is_portrait(theme) ||
+        theme->metrics.screen_height < LYRICS_TOP + 2 * TEXT_LINE_HEIGHT) {
+        return;
+    }
+    TextStyle current = {.font = theme->fonts.body, .color = theme->colors.text};
+    TextStyle next = {.font = theme->fonts.body, .color = theme->colors.text_tertiary};
+    draw_scrolling_line(now_playing, canvas,
+                        (Label){line_area(theme, LYRICS_TOP, TEXT_LINE_HEIGHT), lyrics->current},
+                        current, true, lyrics->changed_ms);
+    draw_scrolling_line(
+        now_playing, canvas,
+        (Label){line_area(theme, LYRICS_TOP + TEXT_LINE_HEIGHT, TEXT_LINE_HEIGHT), lyrics->next},
+        next, true, lyrics->changed_ms);
 }
 
 static void draw_track_text(const NowPlayingScreen *now_playing, Canvas *canvas)
@@ -702,12 +736,15 @@ static void draw(void *context, Canvas *canvas)
     draw_format(now_playing, canvas);
     draw_details(now_playing, canvas);
     draw_times(now_playing, canvas);
+    draw_lyrics(now_playing, canvas);
 }
 
 Screen *now_playing_screen_init(NowPlayingScreen *now_playing, NowPlayingConfig config)
 {
     now_playing->config = config;
     now_playing->has_text = false;
+    now_playing->lyrics = lyrics_view_memory();
+    lyrics_view_clear(now_playing->lyrics);
     now_playing->scrubbing = false;
     now_playing->scrub_position_ms = 0;
     now_playing->feedback = NOW_PLAYING_FEEDBACK_NONE;

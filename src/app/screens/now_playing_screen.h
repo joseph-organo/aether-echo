@@ -7,6 +7,7 @@
 #include "core/key_tracker.h"
 #include "cover_cache.h"
 #include "library/library.h"
+#include "lyrics_view.h"
 #include "player.h"
 #include "ui/screen.h"
 #include "ui/theme.h"
@@ -76,6 +77,7 @@ typedef struct NowPlayingScreen {
     char title[NOW_PLAYING_TEXT_CAPACITY];
     char artist[NOW_PLAYING_TEXT_CAPACITY];
     char album[NOW_PLAYING_TEXT_CAPACITY];
+    LyricsView *lyrics;
 } NowPlayingScreen;
 
 NowPlayingCommand now_playing_command_for(KeyEvent event, bool scrubbing);
