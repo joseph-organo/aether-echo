@@ -1,11 +1,11 @@
 # EchoPod
 
-Replacement firmware for the Snowsky (FiiO) Echo (Not MINI!) music player. It has an iPod-style Cover Flow browser, a music library built on the player, album favorites, M3U & M3U8 playlists and an Up Next queue. It isn't made or supported by FiiO.
+Replacement firmware for the Snowsky (FiiO) Echo (NOT MINI) music player. It has an iPod-style Cover Flow browser, a music library built on the player, album favorites, M3U & M3U8 playlists, an Up Next queue, and synchronized lyrics support. It isn't made or supported by FiiO.
 
-This is an adaptation of the original EchoPod made by BasilSkyWalk to be made usable on the Fiio Snowsky Echo (Not MINI!) music player with a few other adjustments.
+This is an adaptation of the original EchoPod made by BasilSkyWalk, tailored for the FiiO Snowsky Echo (NOT MINI) music player with numerous optimizations and porting updates.
 
 - **Installing and using it:** `docs/user-guide.md`.
-- **Read first:** `docs/known-issues.md`. EchoPod is early, and has been tested on one player.
+- **Read first:** `docs/known-issues.md`. EchoPod is early, and hardware testing is expanding.
 - **What's new:** `docs/release-notes.md`.
 
 The hardware knowledge it relies on comes largely from the [ReChord](https://github.com/brnomt/ReChord) project's research (`docs/hardware.md`, `CREDITS.md`).
@@ -13,17 +13,16 @@ The hardware knowledge it relies on comes largely from the [ReChord](https://git
 ## What it does
 
 - **Plays** FLAC, ALAC, MP3, AAC, Opus and WAV, from 44.1 to 192 kHz with 24-bit output, gapless.
-- **Cover Flow**, with every album and a Random album tile, and **Now Playing** with the cover, progress and seeking.
-- **A library built on the player:** Artists, Album Artists, Albums, Genres, Folders, All Songs, Playlists (M3U and M3U8) and Favorites, with fast scroll and letter jumps. Or build it on a computer with **echo-sync**.
+- **Cover Flow**, with every album and a Random album tile, and **Now Playing** with the cover, progress, seeking, and a two-line synchronized lyrics view.
+- **A library built on the player:** Artists, Album Artists, Albums, Genres, Folders, All Songs, Playlists (M3U and M3U8) and Favorites, with fast scroll and letter jumps. Handles large SD cards. Or build it on a computer with **echo-sync**.
 - **Queue and modes:** shuffle songs or albums, repeat, and Up Next (Play Next, Add to Up Next). The queue and position come back after power-off.
 - **Equalizer:** FiiO's presets and a 7-band Custom EQ.
 - **Portrait mode:** Settings → Orientation turns the screen upright either way, with layouts made for it. The volume rocker turns with it.
-- **Languages:** Settings → Language: English, Simplified Chinese, Japanese, Korean, German, French, Spanish, Italian, Portuguese, Dutch, Swedish, Danish, Norwegian and Finnish. The choice applies after a restart. Titles and artists in Cyrillic, Greek, Polish, Czech, Turkish, Romanian and Vietnamese letters draw too.
+- **Languages:** Settings → Language: English, Simplified Chinese, Japanese, Korean, German, French, Spanish, Italian, Portuguese, Dutch, Swedish, Danish, Norwegian and Finnish. Chinese, Japanese, and Korean text rendering is fully supported.
 - **Audiobooks and podcasts** on their own shelves, with a bookmark for each.
 - **Bluetooth headphones:** pairing, up to six remembered, reconnecting by itself.
 - **USB:** both drives as mass storage, or the player as a USB DAC.
 - **Everyday controls:** pause, volume and skip with the screen off, a sleep timer, auto off and a charge screen.
-- **Chinese, Japanese and Korean** names.
 - **Updates itself** from a file copy, and goes back to FiiO's firmware the same way.
 
 ## Build and run the simulator (macOS)
