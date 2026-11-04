@@ -25,17 +25,6 @@ The hardware knowledge it relies on comes largely from the [ReChord](https://git
 - **Everyday controls:** pause, volume and skip with the screen off, a sleep timer, auto off and a charge screen.
 - **Updates itself** from a file copy, and goes back to FiiO's firmware the same way.
 
-## Build and run the simulator (macOS)
-
-```sh
-brew install cmake sdl2 clang-format arm-none-eabi-gcc arm-none-eabi-binutils
-python3 -m venv .venv && .venv/bin/pip install -r tools/requirements.txt
-cmake --preset dev
-cmake --build --preset dev
-ctest --preset dev
-./build/dev/platform/sim/echo_sim
-```
-
 ## Build on Windows
 
 Install [MSYS2](https://www.msys2.org) and, in its CLANG64 shell, the packages `mingw-w64-clang-x86_64-{clang,compiler-rt,cmake,ninja,SDL2}` and `mingw-w64-clang-x86_64-arm-none-eabi-{gcc,binutils,newlib}`, plus Python 3 with `pip install -r tools/requirements.txt`. With `C:\msys64\clang64\bin` first on the PATH (and not `C:\msys64\usr\bin`, whose git ignores this repo's line endings):
