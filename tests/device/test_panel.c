@@ -61,28 +61,6 @@ static PanelBus recording_bus(Recorder *recorder)
 #define D(value) {ENTRY_DATA, value}
 #define W(value) {ENTRY_DELAY, value}
 
-static const Entry VARIANT_B_INIT[] = {
-    C(0x11), W(120),  C(0x36), D(0x60), C(0x3A), D(0x05), C(0xA4), D(0x44), D(0x44), C(0xB2),
-    D(0x0C), D(0x0C), D(0x00), D(0x33), D(0x33), C(0xB7), D(0x35), C(0xBB), D(0x1A), C(0xC0),
-    D(0x2C), C(0xC2), D(0x01), C(0xC3), D(0x0B), C(0xC4), D(0x20), C(0xC6), D(0x0F), C(0xD0),
-    D(0xA4), D(0xA1), C(0xD6), D(0xA1), C(0xE0), D(0xF0), D(0x06), D(0x0B), D(0x07), D(0x07),
-    D(0x24), D(0x2E), D(0x32), D(0x46), D(0x37), D(0x13), D(0x13), D(0x2D), D(0x33), C(0xE1),
-    D(0xF0), D(0x02), D(0x06), D(0x09), D(0x08), D(0x05), D(0x29), D(0x44), D(0x42), D(0x38),
-    D(0x14), D(0x14), D(0x2A), D(0x30), C(0x2A), D(0x00), D(0x00), D(0x00), D(0xEF), C(0x2B),
-    D(0x00), D(0x23), D(0x00), D(0xCC), C(0x21), C(0x29), C(0x2C),
-};
-
-static const Entry VARIANT_A_INIT[] = {
-    C(0x11), W(120),  C(0xDF), D(0x5A), D(0x69), D(0x02), D(0x01), C(0x36), D(0x60),
-    C(0x3A), D(0x05), C(0xB2), D(0x0B), D(0x0B), D(0x00), D(0x33), D(0x33), C(0xB7),
-    D(0x75), C(0xBB), D(0x28), C(0xC0), D(0x2C), C(0xC2), D(0x01), C(0xC3), D(0x1F),
-    C(0xC5), D(0x2A), C(0xC6), D(0x13), C(0xD0), D(0xA7), C(0xD0), D(0xA4), D(0xA1),
-    C(0xD6), D(0xA1), C(0xE0), D(0xF0), D(0x05), D(0x0A), D(0x06), D(0x06), D(0x03),
-    D(0x2B), D(0x32), D(0x43), D(0x36), D(0x11), D(0x10), D(0x2B), D(0x32), C(0xE1),
-    D(0xF0), D(0x08), D(0x0C), D(0x0B), D(0x09), D(0x24), D(0x2B), D(0x22), D(0x43),
-    D(0x38), D(0x15), D(0x16), D(0x2F), D(0x37), C(0x21), C(0x29), C(0x2C),
-};
-
 static void check_log(const Recorder *recorder, const Entry *expected, int count)
 {
     CHECK_EQUAL(count, recorder->count);
@@ -92,68 +70,117 @@ static void check_log(const Recorder *recorder, const Entry *expected, int count
     }
 }
 
-static void variant_b_sends_its_init_stream(void)
+static const Entry ST7796S_INIT[] = {
+    C(0x11), W(120),  C(0xF0), D(0xC3), C(0xF0), D(0x96), C(0x36), D(0x28),
+    C(0x3A), D(0x55), C(0xB4), D(0x01), C(0xB6), D(0x20), D(0x02), D(0x3B),
+    C(0xB7), D(0xC6), C(0xB9), D(0x02), D(0xE0), C(0xC0), D(0xC0), D(0x64),
+    C(0xC1), D(0x1D), C(0xC2), D(0xA7), C(0xC5), D(0x28), C(0xE8), D(0x40),
+    D(0x8A), D(0x00), D(0x00), D(0x29), D(0x19), D(0xA5), D(0x33), C(0xE0),
+    D(0xF0), D(0x0B), D(0x12), D(0x09), D(0x0A), D(0x26), D(0x39), D(0x54),
+    D(0x4E), D(0x38), D(0x13), D(0x13), D(0x2E), D(0x34), C(0xE1), D(0xF0),
+    D(0x10), D(0x15), D(0x0D), D(0x0C), D(0x07), D(0x38), D(0x43), D(0x4D),
+    D(0x3A), D(0x16), D(0x15), D(0x30), D(0x35), C(0xF0), D(0x3C), C(0xF0),
+    D(0x69), C(0x35), D(0x00), C(0x29), C(0x21), C(0x2A), D(0x00), D(0x31),
+    D(0x01), D(0x0E), C(0x2B), D(0x00), D(0x00), D(0x01), D(0xDF), C(0x2C),
+};
+
+static void the_st7796s_sends_its_init_stream(void)
 {
     Recorder recorder;
     PanelBus bus = recording_bus(&recorder);
-    panel_send_init(&bus, PANEL_VARIANT_B);
-    check_log(&recorder, VARIANT_B_INIT, (int)(sizeof VARIANT_B_INIT / sizeof VARIANT_B_INIT[0]));
+    panel_send_init(&bus);
+    check_log(&recorder, ST7796S_INIT, (int)(sizeof ST7796S_INIT / sizeof ST7796S_INIT[0]));
 }
 
-static void variant_a_sends_its_init_stream(void)
+static void the_st7796s_init_sleeps_out_before_anything_else_and_waits_120_ms(void)
 {
     Recorder recorder;
     PanelBus bus = recording_bus(&recorder);
-    panel_send_init(&bus, PANEL_VARIANT_A);
-    check_log(&recorder, VARIANT_A_INIT, (int)(sizeof VARIANT_A_INIT / sizeof VARIANT_A_INIT[0]));
+    panel_send_init(&bus);
+    CHECK_EQUAL(ENTRY_COMMAND, recorder.entries[0].kind);
+    CHECK_EQUAL(0x11, recorder.entries[0].value);
+    CHECK_EQUAL(ENTRY_DELAY, recorder.entries[1].kind);
+    CHECK_EQUAL(120, recorder.entries[1].value);
 }
 
-static void a_window_maps_visible_rows_to_panel_rows_from_35(void)
+static void an_echo_window_maps_visible_rows_to_panel_rows_from_49(void)
 {
     static const Entry expected[] = {
-        C(0x2A), D(0x00), D(0x00), D(0x01), D(0x3F), C(0x2B),
-        D(0x00), D(0x23), D(0x00), D(0xCC), C(0x2C),
+        C(0x2A), D(0x00), D(0x00), D(0x01), D(0xDF), C(0x2B),
+        D(0x00), D(0x31), D(0x01), D(0x0E), C(0x2C),
     };
     Recorder recorder;
     PanelBus bus = recording_bus(&recorder);
-    panel_begin_write(&bus, (PanelWindow){0, 0, 320, 170, PANEL_LANDSCAPE});
+    panel_begin_write(&bus, (PanelWindow){0, 0, 480, 222, PANEL_LANDSCAPE});
     check_log(&recorder, expected, (int)(sizeof expected / sizeof expected[0]));
 }
 
-static void a_partial_window_sets_its_columns_and_rows(void)
+static void a_partial_echo_window_keeps_columns_plain_and_offsets_rows(void)
 {
     static const Entry expected[] = {
         C(0x2A), D(0x00), D(0x0A), D(0x01), D(0x09), C(0x2B),
-        D(0x00), D(0x45), D(0x00), D(0x66), C(0x2C),
+        D(0x00), D(0x5B), D(0x00), D(0x7C), C(0x2C),
     };
     Recorder recorder;
     PanelBus bus = recording_bus(&recorder);
-    panel_begin_write(&bus, (PanelWindow){10, 34, 256, 34, PANEL_LANDSCAPE});
+    panel_begin_write(&bus, (PanelWindow){10, 42, 256, 34, PANEL_LANDSCAPE});
     check_log(&recorder, expected, (int)(sizeof expected / sizeof expected[0]));
 }
 
-static void each_rotation_sets_its_memory_access_mode(void)
+static void the_board_default_window_offset_follows_the_board(void)
 {
-    static const uint8_t modes[PANEL_ROTATION_COUNT] = {0x60, 0xC0, 0x00};
-    for (int rotation = 0; rotation < PANEL_ROTATION_COUNT; rotation++) {
-        Entry expected[] = {C(0x36), D(modes[rotation])};
-        Recorder recorder;
-        PanelBus bus = recording_bus(&recorder);
-        panel_set_rotation(&bus, (PanelRotation)rotation);
-        check_log(&recorder, expected, 2);
-    }
+    CHECK_EQUAL(49, PANEL_FIRST_VISIBLE_ROW);
 }
 
-static void a_portrait_window_maps_visible_columns_from_35(void)
+static void landscape_is_the_stock_memory_access_byte(void)
+{
+    static const Entry expected[] = {C(0x36), D(0x28)};
+    Recorder recorder;
+    PanelBus bus = recording_bus(&recorder);
+    panel_set_rotation(&bus, PANEL_LANDSCAPE);
+    check_log(&recorder, expected, 2);
+}
+
+static void the_two_portrait_turns_mirror_each_other_on_the_same_axis_pair(void)
+{
+    static const Entry upright[] = {C(0x36), D(0x88)};
+    static const Entry flipped[] = {C(0x36), D(0x48)};
+    Recorder recorder;
+    PanelBus bus = recording_bus(&recorder);
+    panel_set_rotation(&bus, PANEL_PORTRAIT);
+    check_log(&recorder, upright, 2);
+    bus = recording_bus(&recorder);
+    panel_set_rotation(&bus, PANEL_PORTRAIT_FLIPPED);
+    check_log(&recorder, flipped, 2);
+}
+
+static void an_unknown_rotation_falls_back_to_landscape(void)
+{
+    static const Entry expected[] = {C(0x36), D(0x28)};
+    Recorder recorder;
+    PanelBus bus = recording_bus(&recorder);
+    panel_set_rotation(&bus, PANEL_ROTATION_COUNT);
+    check_log(&recorder, expected, 2);
+}
+
+static void a_portrait_window_offsets_the_columns_and_keeps_the_rows_plain(void)
 {
     static const Entry expected[] = {
-        C(0x2A), D(0x00), D(0x23), D(0x00), D(0xCC), C(0x2B),
-        D(0x00), D(0x00), D(0x01), D(0x3F), C(0x2C),
+        C(0x2A), D(0x00), D(0x31), D(0x01), D(0x0E), C(0x2B),
+        D(0x00), D(0x00), D(0x01), D(0xDF), C(0x2C),
     };
     Recorder recorder;
     PanelBus bus = recording_bus(&recorder);
-    panel_begin_write(&bus, (PanelWindow){0, 0, 170, 320, PANEL_PORTRAIT_FLIPPED});
+    panel_begin_write(&bus, (PanelWindow){0, 0, 222, 480, PANEL_PORTRAIT});
     check_log(&recorder, expected, (int)(sizeof expected / sizeof expected[0]));
+    bus = recording_bus(&recorder);
+    panel_begin_write(&bus, (PanelWindow){0, 0, 222, 480, PANEL_PORTRAIT_FLIPPED});
+    check_log(&recorder, expected, (int)(sizeof expected / sizeof expected[0]));
+}
+
+static void the_visible_window_sits_in_the_middle_of_the_320_wide_memory(void)
+{
+    CHECK_EQUAL(319, PANEL_FIRST_VISIBLE_ROW + (PANEL_FIRST_VISIBLE_ROW + 221));
 }
 
 static void pixels_are_sent_high_byte_first(void)
@@ -166,52 +193,20 @@ static void pixels_are_sent_high_byte_first(void)
     check_log(&recorder, expected, 4);
 }
 
-static void a_bus_word_puts_the_byte_on_bits_16_to_23(void)
-{
-    CHECK_EQUAL(0x00AB0000u, panel_bus_word(0, 0xAB, false));
-}
-
-static void a_data_byte_sets_dc_on_bit_25(void)
-{
-    CHECK_EQUAL(0x02AB0000u, panel_bus_word(0, 0xAB, true));
-}
-
-static void a_bus_word_keeps_other_port_bits_and_clears_bus_bits(void)
-{
-    uint32_t shadow = 0x00001000u | 0x80000001u | 0x03FF0000u;
-    CHECK_EQUAL(0x80001001u | 0x00120000u, panel_bus_word(shadow, 0x12, false));
-}
-
-static void the_write_strobe_is_bit_24(void)
-{
-    CHECK_EQUAL(0x01000000u, PANEL_BUS_WR);
-}
-
-static void an_e8_second_id_byte_selects_variant_a(void)
-{
-    CHECK_EQUAL(PANEL_VARIANT_A, panel_variant_of_id(0x00E80000u));
-    CHECK_EQUAL(PANEL_VARIANT_A, panel_variant_of_id(0x12E856ABu));
-    CHECK_EQUAL(PANEL_VARIANT_B, panel_variant_of_id(0x00000000u));
-    CHECK_EQUAL(PANEL_VARIANT_B, panel_variant_of_id(0xFFFFFFFFu));
-    CHECK_EQUAL(PANEL_VARIANT_B, panel_variant_of_id(0x66666666u));
-    CHECK_EQUAL(PANEL_VARIANT_B, panel_variant_of_id(0x00E90000u));
-}
-
 int main(void)
 {
     static const TestCase cases[] = {
-        TEST_CASE(variant_b_sends_its_init_stream),
-        TEST_CASE(variant_a_sends_its_init_stream),
-        TEST_CASE(a_window_maps_visible_rows_to_panel_rows_from_35),
-        TEST_CASE(a_partial_window_sets_its_columns_and_rows),
-        TEST_CASE(each_rotation_sets_its_memory_access_mode),
-        TEST_CASE(a_portrait_window_maps_visible_columns_from_35),
+        TEST_CASE(the_st7796s_sends_its_init_stream),
+        TEST_CASE(the_st7796s_init_sleeps_out_before_anything_else_and_waits_120_ms),
+        TEST_CASE(an_echo_window_maps_visible_rows_to_panel_rows_from_49),
+        TEST_CASE(a_partial_echo_window_keeps_columns_plain_and_offsets_rows),
+        TEST_CASE(the_board_default_window_offset_follows_the_board),
+        TEST_CASE(landscape_is_the_stock_memory_access_byte),
+        TEST_CASE(the_two_portrait_turns_mirror_each_other_on_the_same_axis_pair),
+        TEST_CASE(an_unknown_rotation_falls_back_to_landscape),
+        TEST_CASE(a_portrait_window_offsets_the_columns_and_keeps_the_rows_plain),
+        TEST_CASE(the_visible_window_sits_in_the_middle_of_the_320_wide_memory),
         TEST_CASE(pixels_are_sent_high_byte_first),
-        TEST_CASE(a_bus_word_puts_the_byte_on_bits_16_to_23),
-        TEST_CASE(a_data_byte_sets_dc_on_bit_25),
-        TEST_CASE(a_bus_word_keeps_other_port_bits_and_clears_bus_bits),
-        TEST_CASE(the_write_strobe_is_bit_24),
-        TEST_CASE(an_e8_second_id_byte_selects_variant_a),
     };
     return test_run_all(cases, TEST_CASE_COUNT(cases));
 }

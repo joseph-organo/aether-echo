@@ -14,10 +14,11 @@ enum {
     SLOT_SECTORS = FW_SECTORS + 16,
     SLOT_1 = 16,
     SLOT_2 = SLOT_1 + SLOT_SECTORS,
-    STOCK_IMAGE_SIZE = 0x2000004,
-    STOCK_FW_SIZE = 0x01FC4000,
-    STOCK_V4_FW_SIZE = 0x01FCC000,
-    STOCK_FW_END = 0x2000000,
+    STOCK_IMAGE_SIZE = 0x2600004,
+    STOCK_FW_SIZE = 0x025C4000,
+    STOCK_V4_FW_SIZE = 0x025CC000,
+    STOCK_FW_END = 0x2600000,
+    MINI_IMAGE_SIZE = 0x2000004,
     MARKER_AT = 0x54000,
     MARKER_LENGTH = 11,
     READ_CHUNK = 8192,
@@ -363,8 +364,9 @@ static void images_that_could_not_boot_are_invalid(void)
     check_invalid(broken_image(CODE_OFFSET + 4, 0x03050201), IMAGE_SIZE);
 }
 
-static const char EIGHT_GB_MARKER[] = "HIFIEC00IMG";
-static const char SMALL_MODEL_MARKER[] = "MINIV100IMG";
+static const char ECHO_MARKER[] = "ECHOV100IMG";
+static const char MINI_8GB_MARKER[] = "HIFIEC00IMG";
+static const char MINI_512MB_MARKER[] = "MINIV100IMG";
 
 static uint32_t stock_fw_size(const uint8_t *image)
 {
@@ -399,7 +401,7 @@ static uint8_t *model_image(uint8_t seed, uint32_t fw_size, const char *marker, 
 
 static uint8_t *stock_image(uint8_t seed)
 {
-    return model_image(seed, STOCK_FW_SIZE, EIGHT_GB_MARKER, MARKER_AT);
+    return model_image(seed, STOCK_FW_SIZE, ECHO_MARKER, MARKER_AT);
 }
 
 static UpdateStorage stock_target(void)
@@ -422,37 +424,40 @@ static void a_stock_image_is_recognised_as_stock(void)
     CHECK_EQUAL(UPDATE_STOCK, check_stock(stock_image(1), STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
 }
 
-static void firmware_4_stock_images_are_recognised_as_stock(void)
+static void the_echo_v200_firmware_size_is_recognised_as_stock(void)
 {
-    uint8_t *image = model_image(1, STOCK_V4_FW_SIZE, EIGHT_GB_MARKER, MARKER_AT);
+    uint8_t *image = model_image(1, STOCK_V4_FW_SIZE, ECHO_MARKER, MARKER_AT);
     CHECK_EQUAL(UPDATE_STOCK, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
 }
 
 static void a_model_marker_across_two_reads_is_found(void)
 {
-    uint8_t *image = model_image(1, STOCK_FW_SIZE, EIGHT_GB_MARKER, 7 * READ_CHUNK - 5);
+    uint8_t *image = model_image(1, STOCK_FW_SIZE, ECHO_MARKER, 7 * READ_CHUNK - 5);
     CHECK_EQUAL(UPDATE_STOCK, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
-    image = model_image(1, STOCK_FW_SIZE, EIGHT_GB_MARKER, 7 * READ_CHUNK - MARKER_LENGTH);
+    image = model_image(1, STOCK_FW_SIZE, ECHO_MARKER, 7 * READ_CHUNK - MARKER_LENGTH);
     CHECK_EQUAL(UPDATE_STOCK, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
-    image = model_image(1, STOCK_FW_SIZE, EIGHT_GB_MARKER, 7 * READ_CHUNK - 1);
+    image = model_image(1, STOCK_FW_SIZE, ECHO_MARKER, 7 * READ_CHUNK - 1);
     CHECK_EQUAL(UPDATE_STOCK, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
 }
 
-static void the_512_mb_model_and_unmarked_images_are_invalid(void)
+static void echo_mini_images_and_unmarked_images_are_invalid(void)
 {
-    uint8_t *image = model_image(1, STOCK_V4_FW_SIZE, SMALL_MODEL_MARKER, MARKER_AT);
+    uint8_t *image = model_image(1, STOCK_V4_FW_SIZE, MINI_512MB_MARKER, MARKER_AT);
     CHECK_EQUAL(UPDATE_INVALID, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
+    image = model_image(1, STOCK_V4_FW_SIZE, MINI_8GB_MARKER, MARKER_AT);
+    CHECK_EQUAL(UPDATE_INVALID, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
+    CHECK_EQUAL(UPDATE_INVALID, check_stock(stock_image(1), MINI_IMAGE_SIZE, STOCK_SLOT_SECTORS));
     image = model_image(1, STOCK_FW_SIZE, NULL, 0);
     CHECK_EQUAL(UPDATE_INVALID, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
-    image = model_image(1, STOCK_FW_SIZE, EIGHT_GB_MARKER, MARKER_AT);
-    memcpy(image + 2 * MARKER_AT, SMALL_MODEL_MARKER, MARKER_LENGTH);
+    image = model_image(1, STOCK_FW_SIZE, ECHO_MARKER, MARKER_AT);
+    memcpy(image + 2 * MARKER_AT, MINI_512MB_MARKER, MARKER_LENGTH);
     seal_stock(image);
     CHECK_EQUAL(UPDATE_INVALID, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
 }
 
 static void a_stock_header_copy_off_a_sector_is_invalid(void)
 {
-    uint8_t *image = model_image(1, STOCK_FW_SIZE + 4, EIGHT_GB_MARKER, MARKER_AT);
+    uint8_t *image = model_image(1, STOCK_FW_SIZE + 4, ECHO_MARKER, MARKER_AT);
     CHECK_EQUAL(UPDATE_INVALID, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
 }
 
@@ -525,9 +530,9 @@ int main(void)
         TEST_CASE(a_write_failure_in_slot_2_leaves_slot_1_untouched),
         TEST_CASE(a_block_that_reads_back_wrong_fails_the_install),
         TEST_CASE(a_stock_image_is_recognised_as_stock),
-        TEST_CASE(firmware_4_stock_images_are_recognised_as_stock),
+        TEST_CASE(the_echo_v200_firmware_size_is_recognised_as_stock),
         TEST_CASE(a_model_marker_across_two_reads_is_found),
-        TEST_CASE(the_512_mb_model_and_unmarked_images_are_invalid),
+        TEST_CASE(echo_mini_images_and_unmarked_images_are_invalid),
         TEST_CASE(a_stock_header_copy_off_a_sector_is_invalid),
         TEST_CASE(damaged_or_other_model_stock_images_are_invalid),
         TEST_CASE(a_stock_image_needs_a_slot_it_fits),

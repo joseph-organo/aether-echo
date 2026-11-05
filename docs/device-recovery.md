@@ -92,7 +92,7 @@ Continue only if `ld` shows `Maskrom` and `td` says `Test Device OK.`
 
 3. The player starts FiiO's firmware. If it stays black, unplug USB, press RST, then press Power. Settings → About should show the version you wrote.
 
-Before you write, make sure no `HIFIECnn.IMG` or `ECHOMINI.IMG` file is left at the top level of internal storage if you can still see the drive. FiiO's firmware installs such a file at its first start, and that would put the old image straight back.
+Before you write, make sure no `ECHOVnnn.IMG` file is left at the top level of internal storage if you can still see the drive. FiiO's firmware installs such a file at its first start, and that would put the old image straight back.
 
 ## Rules
 

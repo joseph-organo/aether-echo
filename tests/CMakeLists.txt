@@ -218,7 +218,7 @@ echo_add_unit_test(NAME test_test_pattern_screen
     PRIVATE_INCLUDES ${PROJECT_SOURCE_DIR}/src/app
 )
 
-foreach(device_test audio_math backlight battery_gauge watchdog panic_text stall_watch bt_module card_write core1_control start_record dac_sequence dma_loop flac_accel jack_sense key_ladder key_scanner msc panel pll sd_card stream_drift tick_clock updater usb_audio usb_audio_sink usb_device usb_fallback wav_source)
+foreach(device_test audio_math backlight battery_gauge board_pins vop watchdog panic_text stall_watch bt_module card_write core1_control start_record dac_sequence dma_loop flac_accel jack_sense key_ladder key_scanner msc panel pll sd_card stream_drift tick_clock updater usb_audio usb_audio_sink usb_device usb_fallback wav_source)
     echo_add_unit_test(NAME test_${device_test}
         SOURCES device/test_${device_test}.c
         LIBRARIES echo_device_logic
@@ -400,7 +400,7 @@ if(ARM_GCC)
     add_executable(check_device_image device/check_device_image.c)
     target_link_libraries(check_device_image PRIVATE echo_device_logic echo_options)
     add_test(NAME device_image_passes_the_updater_check
-        COMMAND check_device_image ${PROJECT_SOURCE_DIR}/build/device/HIFIEC90.IMG
+        COMMAND check_device_image ${PROJECT_SOURCE_DIR}/build/device/ECHOV400.IMG
     )
     set_tests_properties(device_image_passes_the_updater_check PROPERTIES
         FIXTURES_REQUIRED device_image

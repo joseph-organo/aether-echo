@@ -4,7 +4,7 @@ This covers installing builds you made yourself. Release users should follow `do
 
 ## First install
 
-The first install goes through FiiO's own updater, as in the user guide: copy `HIFIEC90.IMG` (from `build/device/` or `build/release/`) to the top level of internal storage while FiiO's firmware runs, eject, unplug, take the microSD card out and restart. It has worked from FiiO 3.7.0 and 3.9.0 with the file copied from Windows.
+The first install goes through FiiO's own updater, as in the user guide: copy `ECHOV400.IMG` (from `build/device/` or `build/release/`) to the top level of internal storage while FiiO's firmware runs, eject, unplug, take the microSD card out and restart. It has worked from FiiO 3.7.0 and 3.9.0 with the file copied from Windows.
 
 ### Fallback: a direct maskrom write
 
@@ -14,7 +14,7 @@ If FiiO's updater won't take the file, maskrom can write the image straight into
 
    ```sh
    cmake --preset device && cmake --build --preset device
-   head -c 5242880 build/device/HIFIEC90.IMG > build/device/slot.bin
+   head -c 5242880 build/device/ECHOV400.IMG > build/device/slot.bin
    ```
 
 2. Enter maskrom (`docs/device-recovery.md`, step 2).
@@ -35,12 +35,12 @@ If FiiO's updater won't take the file, maskrom can write the image straight into
 
 1. Connect the player. It shows "Computer found", and two drives appear: internal storage ("ECHO MINI") and the SD card.
 2. Copy the new image to the top level of internal storage and check it:
-   - Windows (PowerShell): `Copy-Item build\device\HIFIEC90.IMG E:\` then `Get-FileHash E:\HIFIEC90.IMG`, with E: the internal drive.
-   - macOS: `cp -X build/device/HIFIEC90.IMG "/Volumes/ECHO MINI/"`, then `rm -f "/Volumes/ECHO MINI/._HIFIEC90.IMG"` and `shasum -a 256` on both copies.
-3. Eject both drives. The player shows "Checking HIFIEC90.IMG", then "Installing update" with a percentage, then "Update installed".
+   - Windows (PowerShell): `Copy-Item build\device\ECHOV400.IMG E:\` then `Get-FileHash E:\ECHOV400.IMG`, with E: the internal drive.
+   - macOS: `cp -X build/device/ECHOV400.IMG "/Volumes/ECHO MINI/"`, then `rm -f "/Volumes/ECHO MINI/._ECHOV400.IMG"` and `shasum -a 256` on both copies.
+3. Eject both drives. The player shows "Checking ECHOV400.IMG", then "Installing update" with a percentage, then "Update installed".
 4. Unplug, hold Power to switch off, then switch on. The new build starts.
 
-The updater takes the highest-numbered `HIFIECnn.IMG`. It checks the image's shape, rows, entry vector, header copy and CRC before writing, skips an image that is already installed, and writes slot 2 first, then slot 1, reading back every chunk. It also accepts FiiO's own 8 GB image (see "Going back to FiiO's firmware" in the user guide) and refuses the 512 MB model's.
+The updater takes the highest-numbered `ECHOVnnn.IMG`. It checks the image's shape, rows, entry vector, header copy and CRC before writing, skips an image that is already installed, and writes slot 2 first, then slot 1, reading back every chunk. It also accepts FiiO's own Echo image (ECHOV200.IMG, see "Going back to FiiO's firmware" in the user guide) and refuses the Echo Mini images.
 
 ## What to check after an install
 

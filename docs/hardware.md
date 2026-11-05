@@ -40,5 +40,13 @@ A short map of the hardware EchoPod drives, for reading the code in `platform/de
 
 ## Firmware image
 
-- `HIFIEC90.IMG` is a 5 MiB `RKnanoFW` container: an outer header, a table of load rows, the code and data, a copy of the first 512 bytes at `0x44C000` and a CRC-32 trailer at `0x500000`. `tools/make_image.py` builds it, and `docs/architecture.md` describes the layout.
-- FiiO's firmware installs the highest-numbered `HIFIECnn.IMG` it finds at the top level of internal storage. FiiO's own images are 32 MiB.
+- `ECHOV400.IMG` is a 5 MiB `RKnanoFW` container: an outer header, a table of load rows, the code and data, a copy of the first 512 bytes at `0x44C000` and a CRC-32 trailer at `0x500000`. `tools/make_image.py` builds it, and `docs/architecture.md` describes the layout.
+- FiiO's firmware installs the highest-numbered `ECHOVnnn.IMG` it finds at the top level of internal storage. FiiO's own images are 32 MiB.
+
+## Echo (full-size model) differences
+
+This port targets the FiiO Snowsky Echo, not the Echo Mini.
+
+- Panel: ST7796S, 480×222 visible inside a 320×480 memory, 49 pixels in from the edge. Its init table is byte-identical to the one in FiiO's `ECHOV200.IMG` (24 steps, starting at `0x591FC`). The memory access byte is `0x28` for landscape; the two portrait values (`0x88`, `0x48`) are derived, not yet tested on a unit.
+- The panel is driven through the chip's LCD controller (base `0x60070000`, `device/vop.h`), with GPIO0 pins 15 to 25 muxed to their alternate function and reset on GPIO2.15. There is no panel ID read and only one init sequence.
+- Pins that differ from the Mini: audio mute is GPIO2.1 (the Mini's is GPIO2.0), there is no DAC reset pin, GPIO0.14 and GPIO2.0 are a power pair held high from boot until power-off, and the 4.4 mm jack reads as plugged when its sense pin is high. The table is `device/board_pins.h`.

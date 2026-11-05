@@ -1,0 +1,441 @@
+diff --git a/README.md b/README.md
+index 45e3ec9..6ea8189 100644
+--- a/README.md
++++ b/README.md
+@@ -42,7 +42,7 @@ cmake --preset release
+ cmake --build --preset release
+ ```
+ 
+-This writes `build/release/HIFIEC90.IMG`. The `device` preset builds the same image with the developer Diagnostics rows. `docs/device-install.md` covers installing builds during development.
++This writes `build/release/ECHOV400.IMG`. The `device` preset builds the same image with the developer Diagnostics rows. `docs/device-install.md` covers installing builds during development.
+ 
+ ## Use your music library in the simulator
+ 
+diff --git a/docs/architecture.md b/docs/architecture.md
+index 991c7d9..a672103 100644
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -271,7 +271,7 @@ Host builds run under UndefinedBehaviorSanitizer. AddressSanitizer is opt-in (`E
+   - the app shows "Computer found" and its steps pause. Before the audio power pins are silenced, `app_release_audio` saves the bookmarks and unloads the player's track (it stays paused at its position) and `board_audio_shut_down` stops the DMA and powers the DAC path down through `board/audio.c`. Silencing the pins behind the audio driver's back used to leave it believing the path was still up, so nothing played after the session until a restart
+   - LUN 0 is the internal-storage user volume and LUN 1 is the SD card, both read/write. Sense data is kept per LUN
+   - if the controller fails to start, `board/usb_report` shows four notices (a key press moves on): the core ID and OTG control after power-up; the failed init step (with `0x10` set when internal storage started) and GHWCFG4; then GINTSTS and OTG control after the wait. This is temporary, while USB is brought up on hardware
+-  - the session ends when every LUN that was present has been ejected, or the cable is pulled. If the session wrote to the card, the file HAL forgets its mount and open files, and `app_start` reloads the app from the changed card. If the cable was pulled while a drive was still mounted, a notice says recent changes may be lost. Diagnostics → Last USB shows how the last session ended (ejected, or unplugged with how many drives still up), the sectors written to each drive and any writes refused after an eject. Then `board/update` opens the highest-numbered `/HIFIECnn.IMG` (00–97, stock's rule) on internal storage and installs it if it's valid and differs from slot 1, or if it's FiiO's stock image, showing progress and the result (a key press dismisses it). Finally `app_wake` restarts the screen timeout. The new firmware starts at the next power cycle, because a warm reboot doesn't work on this hardware
++  - the session ends when every LUN that was present has been ejected, or the cable is pulled. If the session wrote to the card, the file HAL forgets its mount and open files, and `app_start` reloads the app from the changed card. If the cable was pulled while a drive was still mounted, a notice says recent changes may be lost. Diagnostics → Last USB shows how the last session ended (ejected, or unplugged with how many drives still up), the sectors written to each drive and any writes refused after an eject. Then `board/update` opens the highest-numbered `/HIFIECnn.IMG` (100–498, stock's rule) on internal storage and installs it if it's valid and differs from slot 1, or if it's FiiO's stock image, showing progress and the result (a key press dismisses it). Finally `app_wake` restarts the screen timeout. The new firmware starts at the next power cycle, because a warm reboot doesn't work on this hardware
+ - **USB DAC mode** (untested on hardware): Settings → USB mode chooses Storage (the default, the session above) or DAC; `settings_store_apply_hardware` passes it to `hal_system_set_usb_mode`, and `board/main.c` reads it when the cable goes in, so a change takes effect at the next plug-in. Listening for a host, the 3 s wait and the charger case are the same as for mass storage. With a host, `board/usb_dac_session` runs instead of the mass-storage session:
+   - **Class and speed:** USB Audio Class 1.0, full speed only (`usb_device_allow_high_speed(false)`, DCFG speed 1), so it needs no driver on Windows 10 and later, macOS, Linux, Android or iOS. Interface 0 is Audio Control: an input terminal (USB streaming, 2 channels) into a feature unit (ID 2: master mute and volume) into an output terminal (headphones). Interface 1 is Audio Streaming: alternate setting 0 has no endpoint, 1 is 16-bit stereo PCM, 2 is 24-bit stereo PCM (3-byte subframes), both at 44.1 and 48 kHz, on isochronous OUT endpoint 1 (adaptive, 1 ms interval) with room for 49 frames (196 and 294 bytes). 88.2 and 96 kHz are left out because their largest packet (up to 582 bytes at 24-bit) doesn't fit the RX FIFO (see FIFOs below). Android's USB audio picks the highest rate a device offers, and some Windows setups do too, so offering them meant silence on those hosts. The device descriptor says USB 1.1 and has no serial number.
+   - **Synchronisation:** adaptive, by ring level, with no feedback endpoint. The I2S clock runs from the player's MCLK, so the computer's rate and the DAC's drift apart slowly (a few frames per second). `device/usb_audio_sink` converts each packet into the music ring (16-bit samples to the top half of the word, 24-bit samples shifted up by 8, two words per frame, the same format as music) and measures the fill as frames written minus frames the DMA has played. `device/stream_drift` keeps it near 20 ms: when the fill is more than 4 ms off, each packet drops its last frame (too full) or repeats it (too empty) until the fill is back within 1 ms of the target, or past it. One frame per millisecond is far faster than any drift, and a single dropped or repeated frame isn't audible. The sink also keeps the 20 ms after the newest frame silent, so if packets stop the DMA plays silence rather than old audio; if the DMA overtakes the writer (packets lost for longer than the buffer) or the ring would overflow, writing restarts 20 ms ahead of the DMA after a short silence. An asynchronous feedback endpoint would avoid the dropped frames, but it needs a second (IN) isochronous endpoint, a measured rate in 10.14 or 16.16 format and per-host quirks, none of which can be checked without hardware.
+diff --git a/docs/device-install.md b/docs/device-install.md
+index c888209..c3a762f 100644
+--- a/docs/device-install.md
++++ b/docs/device-install.md
+@@ -4,7 +4,7 @@ This covers installing builds you made yourself. Release users should follow `do
+ 
+ ## First install
+ 
+-The first install goes through FiiO's own updater, as in the user guide: copy `HIFIEC90.IMG` (from `build/device/` or `build/release/`) to the top level of internal storage while FiiO's firmware runs, eject, unplug, take the microSD card out and restart. It has worked from FiiO 3.7.0 and 3.9.0 with the file copied from Windows.
++The first install goes through FiiO's own updater, as in the user guide: copy `ECHOV400.IMG` (from `build/device/` or `build/release/`) to the top level of internal storage while FiiO's firmware runs, eject, unplug, take the microSD card out and restart. It has worked from FiiO 3.7.0 and 3.9.0 with the file copied from Windows.
+ 
+ ### Fallback: a direct maskrom write
+ 
+@@ -14,7 +14,7 @@ If FiiO's updater won't take the file, maskrom can write the image straight into
+ 
+    ```sh
+    cmake --preset device && cmake --build --preset device
+-   head -c 5242880 build/device/HIFIEC90.IMG > build/device/slot.bin
++   head -c 5242880 build/device/ECHOV400.IMG > build/device/slot.bin
+    ```
+ 
+ 2. Enter maskrom (`docs/device-recovery.md`, step 2).
+@@ -35,12 +35,12 @@ If FiiO's updater won't take the file, maskrom can write the image straight into
+ 
+ 1. Connect the player. It shows "Computer found", and two drives appear: internal storage ("ECHO MINI") and the SD card.
+ 2. Copy the new image to the top level of internal storage and check it:
+-   - Windows (PowerShell): `Copy-Item build\device\HIFIEC90.IMG E:\` then `Get-FileHash E:\HIFIEC90.IMG`, with E: the internal drive.
+-   - macOS: `cp -X build/device/HIFIEC90.IMG "/Volumes/ECHO MINI/"`, then `rm -f "/Volumes/ECHO MINI/._HIFIEC90.IMG"` and `shasum -a 256` on both copies.
+-3. Eject both drives. The player shows "Checking HIFIEC90.IMG", then "Installing update" with a percentage, then "Update installed".
++   - Windows (PowerShell): `Copy-Item build\device\ECHOV400.IMG E:\` then `Get-FileHash E:\ECHOV400.IMG`, with E: the internal drive.
++   - macOS: `cp -X build/device/ECHOV400.IMG "/Volumes/ECHO MINI/"`, then `rm -f "/Volumes/ECHO MINI/._ECHOV400.IMG"` and `shasum -a 256` on both copies.
++3. Eject both drives. The player shows "Checking ECHOV400.IMG", then "Installing update" with a percentage, then "Update installed".
+ 4. Unplug, hold Power to switch off, then switch on. The new build starts.
+ 
+-The updater takes the highest-numbered `HIFIECnn.IMG`. It checks the image's shape, rows, entry vector, header copy and CRC before writing, skips an image that is already installed, and writes slot 2 first, then slot 1, reading back every chunk. It also accepts FiiO's own 8 GB image (see "Going back to FiiO's firmware" in the user guide) and refuses the 512 MB model's.
++The updater takes the highest-numbered `ECHOVnnn.IMG`. It checks the image's shape, rows, entry vector, header copy and CRC before writing, skips an image that is already installed, and writes slot 2 first, then slot 1, reading back every chunk. It also accepts FiiO's own Echo image (ECHOV200.IMG, see "Going back to FiiO's firmware" in the user guide) and refuses the Echo Mini images.
+ 
+ ## What to check after an install
+ 
+diff --git a/docs/device-recovery.md b/docs/device-recovery.md
+index 8f17c30..328e24d 100644
+--- a/docs/device-recovery.md
++++ b/docs/device-recovery.md
+@@ -92,7 +92,7 @@ Continue only if `ld` shows `Maskrom` and `td` says `Test Device OK.`
+ 
+ 3. The player starts FiiO's firmware. If it stays black, unplug USB, press RST, then press Power. Settings → About should show the version you wrote.
+ 
+-Before you write, make sure no `HIFIECnn.IMG` or `ECHOMINI.IMG` file is left at the top level of internal storage if you can still see the drive. FiiO's firmware installs such a file at its first start, and that would put the old image straight back.
++Before you write, make sure no `ECHOVnnn.IMG` file is left at the top level of internal storage if you can still see the drive. FiiO's firmware installs such a file at its first start, and that would put the old image straight back.
+ 
+ ## Rules
+ 
+diff --git a/docs/hardware.md b/docs/hardware.md
+index 5c6be2b..4902816 100644
+--- a/docs/hardware.md
++++ b/docs/hardware.md
+@@ -40,5 +40,5 @@ A short map of the hardware EchoPod drives, for reading the code in `platform/de
+ 
+ ## Firmware image
+ 
+-- `HIFIEC90.IMG` is a 5 MiB `RKnanoFW` container: an outer header, a table of load rows, the code and data, a copy of the first 512 bytes at `0x44C000` and a CRC-32 trailer at `0x500000`. `tools/make_image.py` builds it, and `docs/architecture.md` describes the layout.
+-- FiiO's firmware installs the highest-numbered `HIFIECnn.IMG` it finds at the top level of internal storage. FiiO's own images are 32 MiB.
++- `ECHOV400.IMG` is a 5 MiB `RKnanoFW` container: an outer header, a table of load rows, the code and data, a copy of the first 512 bytes at `0x44C000` and a CRC-32 trailer at `0x500000`. `tools/make_image.py` builds it, and `docs/architecture.md` describes the layout.
++- FiiO's firmware installs the highest-numbered `ECHOVnnn.IMG` it finds at the top level of internal storage. FiiO's own images are 32 MiB.
+diff --git a/docs/user-guide.md b/docs/user-guide.md
+index c025c64..8d49c3e 100644
+--- a/docs/user-guide.md
++++ b/docs/user-guide.md
+@@ -8,7 +8,7 @@ Read `docs/known-issues.md` before you install. EchoPod has been tested on one p
+ 
+ ## Which players
+ 
+-- **Echo Mini 8 GB: supported.** Its FiiO update file is called `HIFIECnn.IMG`.
++- **Echo Mini 8 GB: supported.** Its FiiO update file is called `ECHOVnnn.IMG`.
+ - **Echo Mini 512 MB: not supported.** Its FiiO update file is called `MINIVnnn.IMG`. Its firmware ignores EchoPod's file, and EchoPod refuses its firmware.
+ 
+ Tested starting points: FiiO firmware 3.7.0, 3.9.0 and 4.0.0 (Settings → About on the player shows yours).
+@@ -17,16 +17,16 @@ Tested starting points: FiiO firmware 3.7.0, 3.9.0 and 4.0.0 (Settings → About
+ 
+ 1. Copy anything you want to keep off the player's internal storage.
+ 2. Charge the battery.
+-3. Download `HIFIEC90.IMG` and `SHA256SUMS.txt` from the [EchoPod releases](https://github.com/BasilSkyWalk/echopod/releases), and check the file:
+-   - Windows (PowerShell): `Get-FileHash HIFIEC90.IMG`
+-   - macOS or Linux: `shasum -a 256 HIFIEC90.IMG`
++3. Download `ECHOV400.IMG` and `SHA256SUMS.txt` from the [EchoPod releases](https://github.com/BasilSkyWalk/echopod/releases), and check the file:
++   - Windows (PowerShell): `Get-FileHash ECHOV400.IMG`
++   - macOS or Linux: `shasum -a 256 ECHOV400.IMG`
+ 
+-   The result must match the line for `HIFIEC90.IMG` in `SHA256SUMS.txt`. If it doesn't, download it again.
++   The result must match the line for `ECHOV400.IMG` in `SHA256SUMS.txt`. If it doesn't, download it again.
+ 
+ ## Install
+ 
+ 1. Connect the player to your computer. The internal storage appears as a drive called ECHO MINI.
+-2. Copy `HIFIEC90.IMG` to the top level of that drive, not into a folder. Delete any other `HIFIECnn.IMG` or `ECHOMINI.IMG` file there first: the player installs the one with the highest number.
++2. Copy `ECHOV400.IMG` to the top level of that drive, not into a folder. Delete any other `ECHOVnnn.IMG` file there first: the player installs the one with the highest number.
+ 3. Eject the drive (Windows: Safely Remove; macOS: Eject), then unplug.
+ 4. Take the microSD card out.
+ 5. Switch the player off and on again. It shows "Updating, Don't power off" for about a minute or two. Leave it alone until EchoPod starts.
+@@ -206,21 +206,21 @@ Podcasts/
+ 
+ ## Updating EchoPod
+ 
+-1. Copy the new `HIFIEC90.IMG` to the top level of internal storage.
++1. Copy the new `ECHOV400.IMG` to the top level of internal storage.
+ 2. Eject both drives. The player checks the file and shows "Installing update", then "Update installed".
+ 3. Unplug, then hold Power to turn the player off, and switch it on again.
+ 
+ ## Going back to FiiO's firmware
+ 
+ 1. Download FiiO's firmware for the **8 GB** Echo Mini from FiiO's website and unzip it.
+-2. Delete `HIFIEC90.IMG` from internal storage if it's still there.
+-3. Copy FiiO's `HIFIECnn.IMG` (for example `HIFIEC40.IMG`) to the top level of internal storage, unchanged. Don't copy the `MINIVnnn.IMG` file from the same zip: that one is for the 512 MB model, and EchoPod refuses it.
++2. Delete `ECHOV400.IMG` from internal storage if it's still there.
++3. Copy FiiO's `ECHOVnnn.IMG` (for example `ECHOV200.IMG`) to the top level of internal storage, unchanged. Don't copy the `MINIVnnn.IMG` file from the same zip: that one is for the 512 MB model, and EchoPod refuses it.
+ 4. Eject both drives. The player checks the file (this takes a while) and shows "Installing FiiO firmware", then "FiiO firmware installed".
+ 5. Unplug, take the microSD card out, hold Power to turn the player off, and switch it on. FiiO's firmware starts, shows "Updating" once more for a minute or two while it installs the same file, and deletes it.
+ 
+ ## If something goes wrong
+ 
+-- **"isn't a valid image for this player" when going back to FiiO:** check that you copied the `HIFIECnn.IMG` file, not `MINIVnnn.IMG`, and that it's unchanged (its hash matches the one in FiiO's zip). EchoPod 0.2.0 and earlier also refuse FiiO's 4.0.0 firmware: update EchoPod first, or install FiiO 3.9.0 (`HIFIEC39.IMG`) and then FiiO's own update to 4.0.0. To switch to another custom firmware, go back to FiiO's first: EchoPod only installs its own images and FiiO's.
+-- **The install doesn't take** (FiiO's firmware comes back after a short "Updating"): copy the file again, check its hash on the player's drive, and make sure it's the only `HIFIECnn.IMG` there. If it keeps failing, the only other way in is maskrom (below).
++- **"isn't a valid image for this player" when going back to FiiO:** check that you copied the `ECHOVnnn.IMG` file, not `MINIVnnn.IMG`, and that it's unchanged (its hash matches the one in FiiO's zip). EchoPod 0.2.0 and earlier also refuse FiiO's 4.0.0 firmware: update EchoPod first, or install FiiO 3.9.0 (`HIFIEC39.IMG`) and then FiiO's own update to 4.0.0. To switch to another custom firmware, go back to FiiO's first: EchoPod only installs its own images and FiiO's.
++- **The install doesn't take** (FiiO's firmware comes back after a short "Updating"): copy the file again, check its hash on the player's drive, and make sure it's the only `ECHOVnnn.IMG` there. If it keeps failing, the only other way in is maskrom (below).
+ - **The player doesn't start at all:** every case so far was recovered through the chip's maskrom mode, which writes FiiO's firmware back from a computer over USB. It needs a patched `rkdeveloptool` and some care; the steps are in `docs/device-recovery.md`.
+ - **Reporting a problem:** include what you did, your FiiO version before installing, and the Firmware, Last start, Last step and Last USB lines from Home → Diagnostics.
+diff --git a/platform/device/CMakeLists.txt b/platform/device/CMakeLists.txt
+index 8c8157c..b1a570d 100644
+--- a/platform/device/CMakeLists.txt
++++ b/platform/device/CMakeLists.txt
+@@ -193,7 +193,7 @@ target_link_options(echo_rescan_overlay PRIVATE
+ 
+ set(ECHO_FIRMWARE_VERSION "0.9.1" CACHE STRING "major.minor.patch written to the image header")
+ find_package(Python3 REQUIRED COMPONENTS Interpreter)
+-set(ECHO_DEVICE_IMAGE ${CMAKE_BINARY_DIR}/HIFIEC90.IMG)
++set(ECHO_DEVICE_IMAGE ${CMAKE_BINARY_DIR}/ECHOV400.IMG)
+ set(ECHO_GLYPH_FACE_ARGUMENTS "")
+ foreach(face_file ${ECHO_GLYPH_FACE_FILES} ${ECHO_LANGUAGE_PACK_FILES})
+     list(APPEND ECHO_GLYPH_FACE_ARGUMENTS --glyph-face ${face_file})
+diff --git a/platform/device/board/update.c b/platform/device/board/update.c
+index 91647d9..a87e593 100644
+--- a/platform/device/board/update.c
++++ b/platform/device/board/update.c
+@@ -15,13 +15,14 @@ enum {
+     PERCENT_CAPACITY = 8,
+     PERCENT_STEP = 5,
+     PERCENT = 100,
+-    HIGHEST_NUMBER = 97,
++    HIGHEST_NUMBER = 498,
++    LOWEST_NUMBER = 100,
++    HUNDREDS_AT = 6,
+     TENS_AT = 7,
+     UNITS_AT = 8
+ };
+ 
+-static const char UPDATE_TEMPLATE[] = "/HIFIEC00.IMG";
+-static const char MODEL_UPDATE[] = "/ECHOMINI.IMG";
++static const char UPDATE_TEMPLATE[] = "/ECHOV100.IMG";
+ static char update_path[sizeof UPDATE_TEMPLATE];
+ static const char *install_title;
+ 
+@@ -66,18 +67,12 @@ static void report(void *context, uint32_t done, uint32_t total)
+ 
+ static bool open_highest_numbered(void)
+ {
+-    _Static_assert(sizeof MODEL_UPDATE == sizeof UPDATE_TEMPLATE, "same length");
+-    for (size_t index = 0; index < sizeof MODEL_UPDATE; index++) {
+-        update_path[index] = MODEL_UPDATE[index];
+-    }
+-    if (fat_open(&volume, update_path, &file)) {
+-        return true;
+-    }
+     for (size_t index = 0; index < sizeof UPDATE_TEMPLATE; index++) {
+         update_path[index] = UPDATE_TEMPLATE[index];
+     }
+-    for (int number = HIGHEST_NUMBER; number >= 0; number--) {
+-        update_path[TENS_AT] = (char)('0' + number / 10);
++    for (int number = HIGHEST_NUMBER; number >= LOWEST_NUMBER; number--) {
++        update_path[HUNDREDS_AT] = (char)('0' + number / 100);
++        update_path[TENS_AT] = (char)('0' + number / 10 % 10);
+         update_path[UNITS_AT] = (char)('0' + number % 10);
+         if (fat_open(&volume, update_path, &file)) {
+             return true;
+diff --git a/platform/device/logic/emmc_layout.c b/platform/device/logic/emmc_layout.c
+index 47898a5..78b8150 100644
+--- a/platform/device/logic/emmc_layout.c
++++ b/platform/device/logic/emmc_layout.c
+@@ -16,9 +16,9 @@ enum {
+     PARTITION_ENTRY = 0x1BE,
+     IMAGE_SIZE_AT = 0x1F4,
+     IMAGE_MAGIC_AT = 0x1F8,
+-    MAX_IMAGE_BYTES = 0x1000000,
++    MAX_IMAGE_BYTES = 0x3000000,
+     SECOND_SLOT_MARGIN = 0x4000,
+-    SECOND_SLOT_TRIES = 20
++    SECOND_SLOT_TRIES = 256
+ };
+ 
+ static uint32_t le16(const uint8_t *bytes)
+diff --git a/platform/device/logic/include/device/updater.h b/platform/device/logic/include/device/updater.h
+index 61b2ded..efe28e7 100644
+--- a/platform/device/logic/include/device/updater.h
++++ b/platform/device/logic/include/device/updater.h
+@@ -5,7 +5,7 @@
+ 
+ enum {
+     UPDATER_IMAGE_SIZE = 0x500004,
+-    UPDATER_STOCK_IMAGE_SIZE = 0x2000004,
++    UPDATER_STOCK_IMAGE_SIZE = 0x2600004,
+     UPDATER_CHUNK_BYTES = 8192
+ };
+ 
+diff --git a/platform/device/logic/updater.c b/platform/device/logic/updater.c
+index 4b2c6bd..549f2a2 100644
+--- a/platform/device/logic/updater.c
++++ b/platform/device/logic/updater.c
+@@ -26,7 +26,7 @@ enum {
+     FW_END = 0x500000,
+     CHUNK_COUNT = FW_END / UPDATER_CHUNK_BYTES,
+     BRAND_OFFSET = 0x10,
+-    STOCK_FW_END = 0x2000000,
++    STOCK_FW_END = 0x2600000,
+     MARKER_LENGTH = 11,
+     MARKER_CARRY = MARKER_LENGTH - 1,
+     PASSES = 2
+@@ -39,17 +39,19 @@ enum {
+ 
+ static const uint8_t MAGIC[8] = {'R', 'K', 'n', 'a', 'n', 'o', 'F', 'W'};
+ static const uint8_t STOCK_BRAND[8] = {'R', 'o', 'c', 'k', 'c', 'h', 'i', 'p'};
+-static const uint8_t EIGHT_GB_MARKER[MARKER_LENGTH] = {'H', 'I', 'F', 'I', 'E', 'C',
++static const uint8_t ECHO_MARKER[MARKER_LENGTH] = {'E', 'C', 'H', 'O', 'V', '1',
++                                                   '0', '0', 'I', 'M', 'G'};
++static const uint8_t MINI_8GB_MARKER[MARKER_LENGTH] = {'H', 'I', 'F', 'I', 'E', 'C',
+                                                        '0', '0', 'I', 'M', 'G'};
+-static const uint8_t SMALL_MODEL_MARKER[MARKER_LENGTH] = {'M', 'I', 'N', 'I', 'V', '1',
+-                                                          '0', '0', 'I', 'M', 'G'};
++static const uint8_t MINI_512MB_MARKER[MARKER_LENGTH] = {'M', 'I', 'N', 'I', 'V', '1',
++                                                         '0', '0', 'I', 'M', 'G'};
+ static const uint32_t ROW_2[4] = {0x03078CD0u, 0x03079DCCu, 4, 0};
+ 
+ typedef struct ModelScan {
+     uint8_t carry[MARKER_CARRY];
+     bool carried;
+-    bool eight_gb;
+-    bool small_model;
++    bool echo;
++    bool mini;
+ } ModelScan;
+ 
+ static uint32_t source_chunk[CHUNK_WORDS];
+@@ -203,12 +205,13 @@ static bool matches_installed(const UpdateFile *file, const UpdateStorage *stora
+ static void find_markers(ModelScan *scan, const uint8_t *bytes, uint32_t length)
+ {
+     for (uint32_t index = 0; index + MARKER_LENGTH <= length; index++) {
+-        if (bytes[index] == EIGHT_GB_MARKER[0] &&
+-            has_text(bytes + index, EIGHT_GB_MARKER, MARKER_LENGTH)) {
+-            scan->eight_gb = true;
+-        } else if (bytes[index] == SMALL_MODEL_MARKER[0] &&
+-                   has_text(bytes + index, SMALL_MODEL_MARKER, MARKER_LENGTH)) {
+-            scan->small_model = true;
++        if (bytes[index] == ECHO_MARKER[0] && has_text(bytes + index, ECHO_MARKER, MARKER_LENGTH)) {
++            scan->echo = true;
++        } else if ((bytes[index] == MINI_8GB_MARKER[0] &&
++                    has_text(bytes + index, MINI_8GB_MARKER, MARKER_LENGTH)) ||
++                   (bytes[index] == MINI_512MB_MARKER[0] &&
++                    has_text(bytes + index, MINI_512MB_MARKER, MARKER_LENGTH))) {
++            scan->mini = true;
+         }
+     }
+ }
+@@ -256,12 +259,12 @@ static UpdateCheck stock_check(const UpdateFile *file, const UpdateStorage *stor
+     bool fits = STOCK_FW_END / SECTOR_BYTES <= storage->slot_sectors;
+     bool copy_fits = fw_size >= HEADER_BYTES && fw_size % SECTOR_BYTES == 0 &&
+                      fw_size <= STOCK_FW_END - HEADER_BYTES;
+-    ModelScan scan = {.carried = false, .eight_gb = false, .small_model = false};
++    ModelScan scan = {.carried = false, .echo = false, .mini = false};
+     bool valid = fits && copy_fits && has_text(bytes + MAGIC_OFFSET, MAGIC, sizeof MAGIC) &&
+                  has_text(bytes + BRAND_OFFSET, STOCK_BRAND, sizeof STOCK_BRAND) &&
+                  header_copy_matches(file, header, fw_size) &&
+                  crc_is_valid(file, STOCK_FW_END, &scan);
+-    return valid && scan.eight_gb && !scan.small_model ? UPDATE_STOCK : UPDATE_INVALID;
++    return valid && scan.echo && !scan.mini ? UPDATE_STOCK : UPDATE_INVALID;
+ }
+ 
+ UpdateCheck updater_check(const UpdateFile *file, const UpdateStorage *storage)
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index 024a46c..420496f 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -400,7 +400,7 @@ if(ARM_GCC)
+     add_executable(check_device_image device/check_device_image.c)
+     target_link_libraries(check_device_image PRIVATE echo_device_logic echo_options)
+     add_test(NAME device_image_passes_the_updater_check
+-        COMMAND check_device_image ${PROJECT_SOURCE_DIR}/build/device/HIFIEC90.IMG
++        COMMAND check_device_image ${PROJECT_SOURCE_DIR}/build/device/ECHOV400.IMG
+     )
+     set_tests_properties(device_image_passes_the_updater_check PROPERTIES
+         FIXTURES_REQUIRED device_image
+diff --git a/tests/device/test_updater.c b/tests/device/test_updater.c
+index 1d24200..e79202e 100644
+--- a/tests/device/test_updater.c
++++ b/tests/device/test_updater.c
+@@ -14,10 +14,11 @@ enum {
+     SLOT_SECTORS = FW_SECTORS + 16,
+     SLOT_1 = 16,
+     SLOT_2 = SLOT_1 + SLOT_SECTORS,
+-    STOCK_IMAGE_SIZE = 0x2000004,
+-    STOCK_FW_SIZE = 0x01FC4000,
+-    STOCK_V4_FW_SIZE = 0x01FCC000,
+-    STOCK_FW_END = 0x2000000,
++    STOCK_IMAGE_SIZE = 0x2600004,
++    STOCK_FW_SIZE = 0x025C4000,
++    STOCK_V4_FW_SIZE = 0x025CC000,
++    STOCK_FW_END = 0x2600000,
++    MINI_IMAGE_SIZE = 0x2000004,
+     MARKER_AT = 0x54000,
+     MARKER_LENGTH = 11,
+     READ_CHUNK = 8192,
+@@ -363,8 +364,9 @@ static void images_that_could_not_boot_are_invalid(void)
+     check_invalid(broken_image(CODE_OFFSET + 4, 0x03050201), IMAGE_SIZE);
+ }
+ 
+-static const char EIGHT_GB_MARKER[] = "HIFIEC00IMG";
+-static const char SMALL_MODEL_MARKER[] = "MINIV100IMG";
++static const char ECHO_MARKER[] = "ECHOV100IMG";
++static const char MINI_8GB_MARKER[] = "HIFIEC00IMG";
++static const char MINI_512MB_MARKER[] = "MINIV100IMG";
+ 
+ static uint32_t stock_fw_size(const uint8_t *image)
+ {
+@@ -399,7 +401,7 @@ static uint8_t *model_image(uint8_t seed, uint32_t fw_size, const char *marker,
+ 
+ static uint8_t *stock_image(uint8_t seed)
+ {
+-    return model_image(seed, STOCK_FW_SIZE, EIGHT_GB_MARKER, MARKER_AT);
++    return model_image(seed, STOCK_FW_SIZE, ECHO_MARKER, MARKER_AT);
+ }
+ 
+ static UpdateStorage stock_target(void)
+@@ -422,37 +424,40 @@ static void a_stock_image_is_recognised_as_stock(void)
+     CHECK_EQUAL(UPDATE_STOCK, check_stock(stock_image(1), STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
+ }
+ 
+-static void firmware_4_stock_images_are_recognised_as_stock(void)
++static void the_echo_v200_firmware_size_is_recognised_as_stock(void)
+ {
+-    uint8_t *image = model_image(1, STOCK_V4_FW_SIZE, EIGHT_GB_MARKER, MARKER_AT);
++    uint8_t *image = model_image(1, STOCK_V4_FW_SIZE, ECHO_MARKER, MARKER_AT);
+     CHECK_EQUAL(UPDATE_STOCK, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
+ }
+ 
+ static void a_model_marker_across_two_reads_is_found(void)
+ {
+-    uint8_t *image = model_image(1, STOCK_FW_SIZE, EIGHT_GB_MARKER, 7 * READ_CHUNK - 5);
++    uint8_t *image = model_image(1, STOCK_FW_SIZE, ECHO_MARKER, 7 * READ_CHUNK - 5);
+     CHECK_EQUAL(UPDATE_STOCK, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
+-    image = model_image(1, STOCK_FW_SIZE, EIGHT_GB_MARKER, 7 * READ_CHUNK - MARKER_LENGTH);
++    image = model_image(1, STOCK_FW_SIZE, ECHO_MARKER, 7 * READ_CHUNK - MARKER_LENGTH);
+     CHECK_EQUAL(UPDATE_STOCK, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
+-    image = model_image(1, STOCK_FW_SIZE, EIGHT_GB_MARKER, 7 * READ_CHUNK - 1);
++    image = model_image(1, STOCK_FW_SIZE, ECHO_MARKER, 7 * READ_CHUNK - 1);
+     CHECK_EQUAL(UPDATE_STOCK, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
+ }
+ 
+-static void the_512_mb_model_and_unmarked_images_are_invalid(void)
++static void echo_mini_images_and_unmarked_images_are_invalid(void)
+ {
+-    uint8_t *image = model_image(1, STOCK_V4_FW_SIZE, SMALL_MODEL_MARKER, MARKER_AT);
++    uint8_t *image = model_image(1, STOCK_V4_FW_SIZE, MINI_512MB_MARKER, MARKER_AT);
+     CHECK_EQUAL(UPDATE_INVALID, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
++    image = model_image(1, STOCK_V4_FW_SIZE, MINI_8GB_MARKER, MARKER_AT);
++    CHECK_EQUAL(UPDATE_INVALID, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
++    CHECK_EQUAL(UPDATE_INVALID, check_stock(stock_image(1), MINI_IMAGE_SIZE, STOCK_SLOT_SECTORS));
+     image = model_image(1, STOCK_FW_SIZE, NULL, 0);
+     CHECK_EQUAL(UPDATE_INVALID, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
+-    image = model_image(1, STOCK_FW_SIZE, EIGHT_GB_MARKER, MARKER_AT);
+-    memcpy(image + 2 * MARKER_AT, SMALL_MODEL_MARKER, MARKER_LENGTH);
++    image = model_image(1, STOCK_FW_SIZE, ECHO_MARKER, MARKER_AT);
++    memcpy(image + 2 * MARKER_AT, MINI_512MB_MARKER, MARKER_LENGTH);
+     seal_stock(image);
+     CHECK_EQUAL(UPDATE_INVALID, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
+ }
+ 
+ static void a_stock_header_copy_off_a_sector_is_invalid(void)
+ {
+-    uint8_t *image = model_image(1, STOCK_FW_SIZE + 4, EIGHT_GB_MARKER, MARKER_AT);
++    uint8_t *image = model_image(1, STOCK_FW_SIZE + 4, ECHO_MARKER, MARKER_AT);
+     CHECK_EQUAL(UPDATE_INVALID, check_stock(image, STOCK_IMAGE_SIZE, STOCK_SLOT_SECTORS));
+ }
+ 
+@@ -525,9 +530,9 @@ int main(void)
+         TEST_CASE(a_write_failure_in_slot_2_leaves_slot_1_untouched),
+         TEST_CASE(a_block_that_reads_back_wrong_fails_the_install),
+         TEST_CASE(a_stock_image_is_recognised_as_stock),
+-        TEST_CASE(firmware_4_stock_images_are_recognised_as_stock),
++        TEST_CASE(the_echo_v200_firmware_size_is_recognised_as_stock),
+         TEST_CASE(a_model_marker_across_two_reads_is_found),
+-        TEST_CASE(the_512_mb_model_and_unmarked_images_are_invalid),
++        TEST_CASE(echo_mini_images_and_unmarked_images_are_invalid),
+         TEST_CASE(a_stock_header_copy_off_a_sector_is_invalid),
+         TEST_CASE(damaged_or_other_model_stock_images_are_invalid),
+         TEST_CASE(a_stock_image_needs_a_slot_it_fits),
+diff --git a/tools/tests/test_make_image.py b/tools/tests/test_make_image.py
+index ba180d9..09ad0a9 100644
+--- a/tools/tests/test_make_image.py
++++ b/tools/tests/test_make_image.py
+@@ -397,7 +397,7 @@ class GeneratedHeaderTest(unittest.TestCase):
+         with tempfile.TemporaryDirectory() as directory:
+             elf = Path(directory) / "firmware.elf"
+             elf.write_bytes(firmware_elf(firmware()))
+-            output = Path(directory) / "HIFIEC90.IMG"
++            output = Path(directory) / "ECHOV400.IMG"
+             status = make_image.main(["--elf", str(elf), "--output", str(output),
+                                       "--build-tag", "abc1234", "--date", "2026-10-22",
+                                       "--version", "0.1.2"])

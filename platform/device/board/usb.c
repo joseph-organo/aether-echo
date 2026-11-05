@@ -3,6 +3,7 @@
 #include <stddef.h>
 
 #include "board.h"
+#include "device/board_pins.h"
 #include "cru.h"
 #include "gpio.h"
 #include "hal/clock.h"
@@ -136,7 +137,6 @@ static const GrfWrite PHY_OFF[] = {
 static HalUsbCore core_registers;
 
 static const GpioPin AMP_ENABLE = {1, 4};
-static const GpioPin AUDIO_MUTE = {2, 0};
 static const GpioPin DAC_POWER = {2, 2};
 
 static uint32_t read_register(uint32_t offset)
@@ -196,10 +196,12 @@ void usb_silence_audio(void)
 {
     cru_gate(GATE_GPIO1, true);
     gpio_mux(AMP_ENABLE, GPIO_FUNCTION_GPIO);
-    gpio_mux(AUDIO_MUTE, GPIO_FUNCTION_GPIO);
+    PinRef mute_pin = board_dac_pin(DAC_PIN_MUTE);
+    GpioPin audio_mute = {mute_pin.port, mute_pin.pin};
+    gpio_mux(audio_mute, GPIO_FUNCTION_GPIO);
     gpio_mux(DAC_POWER, GPIO_FUNCTION_GPIO);
     gpio_output(AMP_ENABLE, false);
-    gpio_output(AUDIO_MUTE, true);
+    gpio_output(audio_mute, true);
     gpio_output(DAC_POWER, false);
 }
 

@@ -1,4 +1,5 @@
 #include "board.h"
+#include "device/board_pins.h"
 #include "device/jack_sense.h"
 #include "gpio.h"
 #include "hal/audio.h"
@@ -56,7 +57,7 @@ bool board_jack_poll(void)
         return false;
     }
     return jack_sense_sample(
-        &sense, jack_kind_of(gpio_read(SINGLE_ENDED_SENSE), gpio_read(BALANCED_SENSE)));
+        &sense, board_jack_kind(gpio_read(SINGLE_ENDED_SENSE), gpio_read(BALANCED_SENSE)));
 }
 
 HalAudioJack hal_audio_jack(void)

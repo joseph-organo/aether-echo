@@ -15,13 +15,14 @@ enum {
     PERCENT_CAPACITY = 8,
     PERCENT_STEP = 5,
     PERCENT = 100,
-    HIGHEST_NUMBER = 97,
+    HIGHEST_NUMBER = 498,
+    LOWEST_NUMBER = 100,
+    HUNDREDS_AT = 6,
     TENS_AT = 7,
     UNITS_AT = 8
 };
 
-static const char UPDATE_TEMPLATE[] = "/HIFIEC00.IMG";
-static const char MODEL_UPDATE[] = "/ECHOMINI.IMG";
+static const char UPDATE_TEMPLATE[] = "/ECHOV100.IMG";
 static char update_path[sizeof UPDATE_TEMPLATE];
 static const char *install_title;
 
@@ -66,18 +67,12 @@ static void report(void *context, uint32_t done, uint32_t total)
 
 static bool open_highest_numbered(void)
 {
-    _Static_assert(sizeof MODEL_UPDATE == sizeof UPDATE_TEMPLATE, "same length");
-    for (size_t index = 0; index < sizeof MODEL_UPDATE; index++) {
-        update_path[index] = MODEL_UPDATE[index];
-    }
-    if (fat_open(&volume, update_path, &file)) {
-        return true;
-    }
     for (size_t index = 0; index < sizeof UPDATE_TEMPLATE; index++) {
         update_path[index] = UPDATE_TEMPLATE[index];
     }
-    for (int number = HIGHEST_NUMBER; number >= 0; number--) {
-        update_path[TENS_AT] = (char)('0' + number / 10);
+    for (int number = HIGHEST_NUMBER; number >= LOWEST_NUMBER; number--) {
+        update_path[HUNDREDS_AT] = (char)('0' + number / 100);
+        update_path[TENS_AT] = (char)('0' + number / 10 % 10);
         update_path[UNITS_AT] = (char)('0' + number % 10);
         if (fat_open(&volume, update_path, &file)) {
             return true;

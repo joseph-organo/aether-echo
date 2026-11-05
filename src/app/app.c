@@ -44,7 +44,7 @@
 #include "ui/toast.h"
 
 enum {
-    STRIP_HEIGHT = 34,
+    STRIP_HEIGHT = 21,
     RESCAN_PROGRESS_MS = 250,
     BATTERY_CHECK_MS = 250,
     CHARGE_LIT_MS = 5000,

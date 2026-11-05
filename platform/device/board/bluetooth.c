@@ -1,5 +1,6 @@
 #include "hal/bluetooth.h"
 #include "board.h"
+#include "device/board_pins.h"
 #include "cru.h"
 #include "device/bt_module.h"
 #include "gpio.h"
@@ -49,9 +50,7 @@ enum {
 static const GpioPin MODULE_POWER = {2, 7};
 static const GpioPin UART_PIN_A = {2, 16};
 static const GpioPin UART_PIN_B = {2, 17};
-static const GpioPin AUDIO_MUTE = {2, 0};
 static const GpioPin WIRED_OUTPUT = {2, 14};
-static const GpioPin PANEL_STRAP = {2, 9};
 
 static BtModule module;
 static bool powered;
@@ -144,8 +143,6 @@ static void match_stock_housekeeping(void)
     register_write(CRU_BASE + 0xC0u, 0x00680068u);
     register_write(GRF_BASE + 0x14u, 0x00200020u);
     register_write(GRF_BASE + 0x54u, 0x00010001u);
-    gpio_mux(PANEL_STRAP, GPIO_FUNCTION_GPIO);
-    gpio_output(PANEL_STRAP, false);
     matched_stock = true;
 }
 
@@ -154,7 +151,8 @@ static void route_to_module(bool to_module)
     if (to_module && !matched_stock) {
         match_stock_housekeeping();
     }
-    gpio_output(AUDIO_MUTE, to_module);
+    PinRef mute_pin = board_dac_pin(DAC_PIN_MUTE);
+    gpio_output((GpioPin){mute_pin.port, mute_pin.pin}, to_module);
     gpio_output(WIRED_OUTPUT, !to_module);
     if (routed != to_module) {
         rerouted_ms = hal_clock_milliseconds();

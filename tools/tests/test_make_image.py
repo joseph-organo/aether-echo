@@ -397,7 +397,7 @@ class GeneratedHeaderTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             elf = Path(directory) / "firmware.elf"
             elf.write_bytes(firmware_elf(firmware()))
-            output = Path(directory) / "HIFIEC90.IMG"
+            output = Path(directory) / "ECHOV400.IMG"
             status = make_image.main(["--elf", str(elf), "--output", str(output),
                                       "--build-tag", "abc1234", "--date", "2026-10-22",
                                       "--version", "0.1.2"])

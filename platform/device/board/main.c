@@ -166,6 +166,7 @@ void board_main(void)
 {
     board_start_record_boot();
     board_power_hold();
+    board_power_pair_set(true);
     board_bluetooth_off();
     board_clock_record_boot();
     board_clock_start();

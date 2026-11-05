@@ -71,6 +71,7 @@ add_library(echo_device_logic STATIC
     audio_math.c
     backlight.c
     battery_gauge.c
+    board_pins.c
     watchdog.c
     bt_module.c
     card_write.c
@@ -112,6 +113,7 @@ add_library(echo_device_logic STATIC
     usb_audio_sink.c
     usb_device.c
     usb_fallback.c
+    vop.c
     wav_source.c
 )
 if(CMAKE_CROSSCOMPILING)

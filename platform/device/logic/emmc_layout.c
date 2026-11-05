@@ -16,9 +16,9 @@ enum {
     PARTITION_ENTRY = 0x1BE,
     IMAGE_SIZE_AT = 0x1F4,
     IMAGE_MAGIC_AT = 0x1F8,
-    MAX_IMAGE_BYTES = 0x1000000,
+    MAX_IMAGE_BYTES = 0x3000000,
     SECOND_SLOT_MARGIN = 0x4000,
-    SECOND_SLOT_TRIES = 20
+    SECOND_SLOT_TRIES = 256
 };
 
 static uint32_t le16(const uint8_t *bytes)

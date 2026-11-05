@@ -1,0 +1,1362 @@
+diff --git a/docs/hardware.md b/docs/hardware.md
+index 4902816..d98ee08 100644
+--- a/docs/hardware.md
++++ b/docs/hardware.md
+@@ -42,3 +42,11 @@ A short map of the hardware EchoPod drives, for reading the code in `platform/de
+ 
+ - `ECHOV400.IMG` is a 5 MiB `RKnanoFW` container: an outer header, a table of load rows, the code and data, a copy of the first 512 bytes at `0x44C000` and a CRC-32 trailer at `0x500000`. `tools/make_image.py` builds it, and `docs/architecture.md` describes the layout.
+ - FiiO's firmware installs the highest-numbered `ECHOVnnn.IMG` it finds at the top level of internal storage. FiiO's own images are 32 MiB.
++
++## Echo (full-size model) differences
++
++This port targets the FiiO Snowsky Echo, not the Echo Mini.
++
++- Panel: ST7796S, 480×222 visible inside a 320×480 memory, 49 pixels in from the edge. Its init table is byte-identical to the one in FiiO's `ECHOV200.IMG` (24 steps, starting at `0x591FC`). The memory access byte is `0x28` for landscape; the two portrait values (`0x88`, `0x48`) are derived, not yet tested on a unit.
++- The panel is driven through the chip's LCD controller (base `0x60070000`, `device/vop.h`), with GPIO0 pins 15 to 25 muxed to their alternate function and reset on GPIO2.15. There is no panel ID read and only one init sequence.
++- Pins that differ from the Mini: audio mute is GPIO2.1 (the Mini's is GPIO2.0), there is no DAC reset pin, GPIO0.14 and GPIO2.0 are a power pair held high from boot until power-off, and the 4.4 mm jack reads as plugged when its sense pin is high. The table is `device/board_pins.h`.
+diff --git a/platform/device/CMakeLists.txt b/platform/device/CMakeLists.txt
+index b1a570d..86a0616 100644
+--- a/platform/device/CMakeLists.txt
++++ b/platform/device/CMakeLists.txt
+@@ -20,6 +20,7 @@ add_executable(echo_device
+     board/main.c
+     board/mmc.c
+     board/overlay.c
++    board/panel_vop.c
+     board/panic.c
+     board/power.c
+     board/sd.c
+diff --git a/platform/device/board/bluetooth.c b/platform/device/board/bluetooth.c
+index de4565d..b61349c 100644
+--- a/platform/device/board/bluetooth.c
++++ b/platform/device/board/bluetooth.c
+@@ -1,5 +1,6 @@
+ #include "hal/bluetooth.h"
+ #include "board.h"
++#include "device/board_pins.h"
+ #include "cru.h"
+ #include "device/bt_module.h"
+ #include "gpio.h"
+@@ -49,9 +50,7 @@ enum {
+ static const GpioPin MODULE_POWER = {2, 7};
+ static const GpioPin UART_PIN_A = {2, 16};
+ static const GpioPin UART_PIN_B = {2, 17};
+-static const GpioPin AUDIO_MUTE = {2, 0};
+ static const GpioPin WIRED_OUTPUT = {2, 14};
+-static const GpioPin PANEL_STRAP = {2, 9};
+ 
+ static BtModule module;
+ static bool powered;
+@@ -144,8 +143,6 @@ static void match_stock_housekeeping(void)
+     register_write(CRU_BASE + 0xC0u, 0x00680068u);
+     register_write(GRF_BASE + 0x14u, 0x00200020u);
+     register_write(GRF_BASE + 0x54u, 0x00010001u);
+-    gpio_mux(PANEL_STRAP, GPIO_FUNCTION_GPIO);
+-    gpio_output(PANEL_STRAP, false);
+     matched_stock = true;
+ }
+ 
+@@ -154,7 +151,8 @@ static void route_to_module(bool to_module)
+     if (to_module && !matched_stock) {
+         match_stock_housekeeping();
+     }
+-    gpio_output(AUDIO_MUTE, to_module);
++    PinRef mute_pin = board_dac_pin(DAC_PIN_MUTE);
++    gpio_output((GpioPin){mute_pin.port, mute_pin.pin}, to_module);
+     gpio_output(WIRED_OUTPUT, !to_module);
+     if (routed != to_module) {
+         rerouted_ms = hal_clock_milliseconds();
+diff --git a/platform/device/board/board.h b/platform/device/board/board.h
+index bceff93..d81f425 100644
+--- a/platform/device/board/board.h
++++ b/platform/device/board/board.h
+@@ -66,6 +66,7 @@ void board_wait_for_key(void);
+ void board_main(void);
+ bool board_usb_listening(void);
+ void board_power_hold(void);
++void board_power_pair_set(bool on);
+ void board_power_cut(void);
+ bool board_power_key_down(void);
+ void board_panic_poll_power(uint32_t now_ms);
+diff --git a/platform/device/board/dac.c b/platform/device/board/dac.c
+index d2e1dd2..33cf6b2 100644
+--- a/platform/device/board/dac.c
++++ b/platform/device/board/dac.c
+@@ -3,6 +3,7 @@
+ #include <stdint.h>
+ 
+ #include "board.h"
++#include "device/board_pins.h"
+ #include "cru.h"
+ #include "dac.h"
+ #include "device/audio_math.h"
+@@ -124,10 +125,8 @@ static const AudioRate RATES[] = {
+ };
+ static const GpioPin I2C_PINS[] = {{2, 10}, {2, 11}};
+ static const GpioPin I2S_PINS[] = {{1, 0}, {1, 1}, {1, 2}, {1, 3}};
+-static const GpioPin DAC_PINS[] = {
+-    [DAC_PIN_MUTE] = {2, 0},  [DAC_PIN_ENABLE_A] = {2, 14}, [DAC_PIN_ENABLE_B] = {2, 2},
+-    [DAC_PIN_RESET] = {2, 1}, [DAC_PIN_AMP] = {1, 4},
+-};
++static const DacPin DAC_PIN_LIST[] = {DAC_PIN_MUTE, DAC_PIN_ENABLE_A, DAC_PIN_ENABLE_B,
++                                      DAC_PIN_RESET, DAC_PIN_AMP};
+ 
+ static HalToneDetail detail;
+ static uint8_t volume_value;
+@@ -259,7 +258,10 @@ static void dac_set_pin(void *context, DacPin pin, bool level)
+     if (pin == DAC_PIN_MUTE || pin == DAC_PIN_ENABLE_A) {
+         level = board_bluetooth_pin(pin == DAC_PIN_MUTE, level);
+     }
+-    gpio_output(DAC_PINS[pin], level);
++    PinRef ref = board_dac_pin(pin);
++    if (ref.present) {
++        gpio_output((GpioPin){ref.port, ref.pin}, level);
++    }
+ }
+ 
+ static void dac_delay(void *context, uint32_t microseconds)
+@@ -423,8 +425,11 @@ static bool play_tone_segments(void)
+ 
+ static void use_dac_pins_as_gpio(void)
+ {
+-    for (uint32_t index = 0; index < sizeof DAC_PINS / sizeof DAC_PINS[0]; index++) {
+-        gpio_mux(DAC_PINS[index], GPIO_FUNCTION_GPIO);
++    for (uint32_t index = 0; index < sizeof DAC_PIN_LIST / sizeof DAC_PIN_LIST[0]; index++) {
++        PinRef ref = board_dac_pin(DAC_PIN_LIST[index]);
++        if (ref.present) {
++            gpio_mux((GpioPin){ref.port, ref.pin}, GPIO_FUNCTION_GPIO);
++        }
+     }
+ }
+ 
+diff --git a/platform/device/board/display.c b/platform/device/board/display.c
+index b08de22..f53e0a8 100644
+--- a/platform/device/board/display.c
++++ b/platform/device/board/display.c
+@@ -3,14 +3,12 @@
+ #include "board.h"
+ #include "cru.h"
+ #include "device/backlight.h"
+-#include "device/panel.h"
+ #include "gpio.h"
+ #include "hal/clock.h"
+ #include "hal/display.h"
++#include "panel_port.h"
+ #include "registers.h"
+ 
+-#define PANEL_DIRECTION_BITS 0x03FF9000u
+-#define PANEL_READ_STROBE (1u << 12)
+ #define PWM_COUNTER (PWM_BASE + 0x0u)
+ #define PWM_PERIOD (PWM_BASE + 0x4u)
+ #define PWM_DUTY (PWM_BASE + 0x8u)
+@@ -18,15 +16,6 @@
+ #define PWM_CONTROL_RUN 0x00010003u
+ 
+ enum {
+-    PANEL_READ_STROBE_PIN = 12,
+-    PANEL_CONTROL_PIN = 15,
+-    PANEL_ID_BYTES = 4,
+-    PANEL_FIRST_BUS_PIN = 16,
+-    PANEL_LAST_BUS_PIN = 25,
+-    RESET_HIGH_MS = 50,
+-    RESET_LOW_MS = 150,
+-    RESET_SETTLE_MS = 30,
+-    RESET_READY_MS = 120,
+     CLEAR_ROWS = 2,
+     PWM_GATE = 0x90,
+     PWM_RESET = 0x17,
+@@ -34,9 +23,7 @@ enum {
+ };
+ 
+ static const GpioPin BACKLIGHT = {2, 4};
+-static const GpioPin PANEL_RESET = {2, 15};
+ 
+-static uint32_t port_shadow;
+ static PanelRotation rotation;
+ static uint8_t brightness;
+ static bool backlight_on;
+@@ -45,111 +32,12 @@ static uint32_t pwm_period;
+ static bool ramping;
+ static uint32_t ramp_started_ms;
+ 
+-static void write_port(uint32_t word)
+-{
+-    volatile uint32_t *port = register_at(GPIO0_BASE + GPIO_DATA);
+-    *port = word;
+-    *port = word;
+-    *port = word | PANEL_BUS_WR;
+-}
+-
+-static void send_byte(uint8_t value, bool data)
+-{
+-    write_port(panel_bus_word(port_shadow, value, data));
+-}
+-
+-static void bus_command(void *context, uint8_t command)
+-{
+-    (void)context;
+-    send_byte(command, false);
+-}
+-
+-static void bus_data(void *context, uint8_t value)
+-{
+-    (void)context;
+-    send_byte(value, true);
+-}
+-
+-static void bus_pixels(void *context, const uint16_t *pixels, uint32_t count)
+-{
+-    (void)context;
+-    volatile uint32_t *port = register_at(GPIO0_BASE + GPIO_DATA);
+-    uint32_t base = panel_bus_word(port_shadow, 0, true);
+-    for (uint32_t index = 0; index < count; index++) {
+-        uint32_t pixel = pixels[index];
+-        uint32_t high = base | (pixel >> 8) << PANEL_BUS_DATA_SHIFT;
+-        uint32_t low = base | (pixel & 0xFFu) << PANEL_BUS_DATA_SHIFT;
+-        *port = high;
+-        *port = high;
+-        *port = high | PANEL_BUS_WR;
+-        *port = low;
+-        *port = low;
+-        *port = low | PANEL_BUS_WR;
+-    }
+-}
+-
+-static void bus_delay(void *context, uint32_t milliseconds)
+-{
+-    (void)context;
+-    board_delay_ms(milliseconds);
+-}
+-
+-static const PanelBus BUS = {bus_command, bus_data, bus_pixels, bus_delay, NULL};
+-
+-static void mux_panel_pins(void)
+-{
+-    for (uint8_t pin = PANEL_FIRST_BUS_PIN; pin <= PANEL_LAST_BUS_PIN; pin++) {
+-        gpio_mux((GpioPin){0, pin}, GPIO_FUNCTION_GPIO);
+-    }
+-    gpio_mux((GpioPin){0, PANEL_CONTROL_PIN}, GPIO_FUNCTION_GPIO);
+-    gpio_mux((GpioPin){0, PANEL_READ_STROBE_PIN}, GPIO_FUNCTION_GPIO);
+-    gpio_mux(PANEL_RESET, GPIO_FUNCTION_GPIO);
+-}
+-
+-static void set_bus_idle(void)
+-{
+-    uint32_t direction = register_read(GPIO0_BASE + GPIO_DIRECTION);
+-    uint32_t data = register_read(GPIO0_BASE + GPIO_DATA);
+-    port_shadow = (data & ~PANEL_DIRECTION_BITS) | PANEL_READ_STROBE;
+-    register_write(GPIO0_BASE + GPIO_DATA, port_shadow | PANEL_BUS_WR);
+-    register_write(GPIO0_BASE + GPIO_DIRECTION, direction | PANEL_DIRECTION_BITS);
+-}
+-
+-static void pulse_reset(uint32_t settle_ms)
+-{
+-    gpio_output(PANEL_RESET, true);
+-    board_delay_ms(RESET_HIGH_MS);
+-    gpio_output(PANEL_RESET, false);
+-    board_delay_ms(RESET_LOW_MS);
+-    gpio_output(PANEL_RESET, true);
+-    board_delay_ms(settle_ms);
+-}
+-
+-static uint32_t read_panel_id(void)
+-{
+-    uint32_t data_bits = 0xFFu << PANEL_BUS_DATA_SHIFT;
+-    uint32_t id = 0;
+-    send_byte(PANEL_READ_ID_COMMAND, false);
+-    register_write(GPIO0_BASE + GPIO_DATA, port_shadow | PANEL_BUS_WR);
+-    register_write(GPIO0_BASE + GPIO_DIRECTION,
+-                   register_read(GPIO0_BASE + GPIO_DIRECTION) & ~data_bits);
+-    for (int index = 0; index < PANEL_ID_BYTES; index++) {
+-        register_write(GPIO0_BASE + GPIO_DATA, (port_shadow & ~PANEL_READ_STROBE) | PANEL_BUS_WR);
+-        board_delay_ms(1);
+-        id = id << 8 |
+-             (register_read(GPIO0_BASE + GPIO_INPUT_LEVEL) >> PANEL_BUS_DATA_SHIFT & 0xFFu);
+-        register_write(GPIO0_BASE + GPIO_DATA, port_shadow | PANEL_BUS_WR);
+-    }
+-    register_write(GPIO0_BASE + GPIO_DIRECTION,
+-                   register_read(GPIO0_BASE + GPIO_DIRECTION) | data_bits);
+-    return id;
+-}
+-
+ void board_display_clear(void)
+ {
+     static uint16_t black[HAL_DISPLAY_WIDTH * CLEAR_ROWS];
+     for (int y = 0; y < HAL_DISPLAY_HEIGHT; y += CLEAR_ROWS) {
+-        hal_display_write(0, y, HAL_DISPLAY_WIDTH, CLEAR_ROWS, black);
++        int rows = HAL_DISPLAY_HEIGHT - y < CLEAR_ROWS ? HAL_DISPLAY_HEIGHT - y : CLEAR_ROWS;
++        hal_display_write(0, y, HAL_DISPLAY_WIDTH, rows, black);
+     }
+ }
+ 
+@@ -251,6 +139,7 @@ void board_backlight_off(void)
+ 
+ void board_display_after_clock_change(void)
+ {
++    board_panel_after_clock_change();
+     if (pwm_running) {
+         apply_backlight();
+     }
+@@ -261,25 +150,19 @@ void board_display_start(void)
+     brightness = HAL_DISPLAY_BRIGHTNESS_MAX;
+     backlight_on = false;
+     drive_backlight(false);
+-    mux_panel_pins();
+-    gpio_output(PANEL_RESET, true);
+-    set_bus_idle();
+-    pulse_reset(RESET_SETTLE_MS);
+-    pulse_reset(RESET_READY_MS);
+-    panel_send_init(&BUS, panel_variant_of_id(read_panel_id()));
++    board_panel_start();
+     board_display_clear();
+ }
+ 
+ void hal_display_set_rotation(HalDisplayRotation turned)
+ {
+     rotation = (PanelRotation)turned;
+-    panel_set_rotation(&BUS, rotation);
++    board_panel_set_rotation(rotation);
+ }
+ 
+ void hal_display_write(int x, int y, int width, int height, const uint16_t *pixels)
+ {
+-    panel_begin_write(&BUS, (PanelWindow){x, y, width, height, rotation});
+-    bus_pixels(NULL, pixels, (uint32_t)(width * height));
++    board_panel_write((PanelWindow){x, y, width, height, rotation}, pixels);
+ }
+ 
+ void hal_display_present(void)
+@@ -290,6 +173,9 @@ void hal_display_set_power(bool on)
+ {
+     board_start_record_step(on ? HAL_START_STEP_BACKLIGHT_ON : HAL_START_STEP_BACKLIGHT_OFF);
+     bool was_on = backlight_on;
++    if (on) {
++        board_power_pair_set(true);
++    }
+     backlight_on = on;
+     ramping = false;
+     if (on && !was_on) {
+diff --git a/platform/device/board/jack.c b/platform/device/board/jack.c
+index ba3a290..76e1657 100644
+--- a/platform/device/board/jack.c
++++ b/platform/device/board/jack.c
+@@ -1,4 +1,5 @@
+ #include "board.h"
++#include "device/board_pins.h"
+ #include "device/jack_sense.h"
+ #include "gpio.h"
+ #include "hal/audio.h"
+@@ -56,7 +57,7 @@ bool board_jack_poll(void)
+         return false;
+     }
+     return jack_sense_sample(
+-        &sense, jack_kind_of(gpio_read(SINGLE_ENDED_SENSE), gpio_read(BALANCED_SENSE)));
++        &sense, board_jack_kind(gpio_read(SINGLE_ENDED_SENSE), gpio_read(BALANCED_SENSE)));
+ }
+ 
+ HalAudioJack hal_audio_jack(void)
+diff --git a/platform/device/board/main.c b/platform/device/board/main.c
+index e8d27e6..60377ce 100644
+--- a/platform/device/board/main.c
++++ b/platform/device/board/main.c
+@@ -166,6 +166,7 @@ void board_main(void)
+ {
+     board_start_record_boot();
+     board_power_hold();
++    board_power_pair_set(true);
+     board_bluetooth_off();
+     board_clock_record_boot();
+     board_clock_start();
+diff --git a/platform/device/board/panel_port.h b/platform/device/board/panel_port.h
+new file mode 100644
+index 0000000..855bad5
+--- /dev/null
++++ b/platform/device/board/panel_port.h
+@@ -0,0 +1,10 @@
++#pragma once
++
++#include <stdint.h>
++
++#include "device/panel.h"
++
++void board_panel_start(void);
++void board_panel_write(PanelWindow window, const uint16_t *pixels);
++void board_panel_after_clock_change(void);
++void board_panel_set_rotation(PanelRotation rotation);
+diff --git a/platform/device/board/panel_vop.c b/platform/device/board/panel_vop.c
+new file mode 100644
+index 0000000..c0bcdfd
+--- /dev/null
++++ b/platform/device/board/panel_vop.c
+@@ -0,0 +1,113 @@
++#include <stddef.h>
++
++#include "board.h"
++#include "cru.h"
++#include "device/panel.h"
++#include "device/vop.h"
++#include "gpio.h"
++#include "hal/system.h"
++#include "panel_port.h"
++#include "registers.h"
++
++#define VOP_BASE 0x60070000u
++
++enum {
++    VOP_GATE = 0x7F,
++    VOP_RESET = 0x0D,
++    VOP_RESET_HOLD_US = 10,
++    VOP_RESET_SETTLE_MS = 2,
++    PANEL_FIRST_PIN = 15,
++    PANEL_LAST_PIN = 25,
++    RESET_HIGH_MS = 50,
++    RESET_LOW_MS = 150,
++    RESET_SETTLE_MS = 30
++};
++
++static const GpioPin PANEL_RESET = {2, 15};
++static bool controller_running;
++
++static volatile uint32_t *vop(void)
++{
++    return register_at(VOP_BASE);
++}
++
++static void bus_command(void *context, uint8_t command)
++{
++    (void)context;
++    vop_command(vop(), command);
++}
++
++static void bus_data(void *context, uint8_t value)
++{
++    (void)context;
++    vop_data(vop(), value);
++}
++
++static void bus_pixels(void *context, const uint16_t *pixels, uint32_t count)
++{
++    (void)context;
++    vop_pixels(vop(), pixels, count);
++}
++
++static void bus_delay(void *context, uint32_t milliseconds)
++{
++    (void)context;
++    board_delay_ms(milliseconds);
++}
++
++static const PanelBus BUS = {bus_command, bus_data, bus_pixels, bus_delay, NULL};
++
++static void power_controller(void)
++{
++    cru_gate(VOP_GATE, true);
++    cru_reset(VOP_RESET, true);
++    board_delay_us(VOP_RESET_HOLD_US);
++    cru_reset(VOP_RESET, false);
++    board_delay_ms(VOP_RESET_SETTLE_MS);
++    vop_start(vop(), hal_system_clock_mhz());
++    controller_running = true;
++}
++
++static void mux_panel_pins(void)
++{
++    for (uint8_t pin = PANEL_FIRST_PIN; pin <= PANEL_LAST_PIN; pin++) {
++        gpio_mux((GpioPin){0, pin}, GPIO_FUNCTION_ALTERNATE);
++    }
++    gpio_mux(PANEL_RESET, GPIO_FUNCTION_GPIO);
++}
++
++static void pulse_reset(void)
++{
++    gpio_output(PANEL_RESET, true);
++    board_delay_ms(RESET_HIGH_MS);
++    gpio_output(PANEL_RESET, false);
++    board_delay_ms(RESET_LOW_MS);
++    gpio_output(PANEL_RESET, true);
++    board_delay_ms(RESET_SETTLE_MS);
++}
++
++void board_panel_start(void)
++{
++    power_controller();
++    mux_panel_pins();
++    pulse_reset();
++    panel_send_init(&BUS);
++}
++
++void board_panel_write(PanelWindow window, const uint16_t *pixels)
++{
++    panel_begin_write(&BUS, window);
++    vop_pixels(vop(), pixels, (uint32_t)(window.width * window.height));
++}
++
++void board_panel_after_clock_change(void)
++{
++    if (controller_running) {
++        vop_set_clock(vop(), hal_system_clock_mhz());
++    }
++}
++
++void board_panel_set_rotation(PanelRotation rotation)
++{
++    panel_set_rotation(&BUS, rotation);
++}
+diff --git a/platform/device/board/power.c b/platform/device/board/power.c
+index 6877d34..77d7933 100644
+--- a/platform/device/board/power.c
++++ b/platform/device/board/power.c
+@@ -1,6 +1,7 @@
+ #include "hal/power.h"
+ #include "board.h"
+ #include "dac.h"
++#include "device/board_pins.h"
+ #include "gpio.h"
+ #include "registers.h"
+ #include "usb.h"
+@@ -78,12 +79,24 @@ HalBattery hal_power_battery(void)
+                         .millivolts = (uint16_t)battery_gauge_recent_millivolts(&gauge)};
+ }
+ 
++void board_power_pair_set(bool on)
++{
++    PinRef pins[BOARD_POWER_PAIR_PINS];
++    uint32_t count = board_power_pair(pins);
++    for (uint32_t index = 0; index < count; index++) {
++        GpioPin pin = {pins[index].port, pins[index].pin};
++        gpio_mux(pin, GPIO_FUNCTION_GPIO);
++        gpio_output(pin, on);
++    }
++}
++
+ void board_power_cut(void)
+ {
+     board_backlight_off();
+     board_bluetooth_off();
+     __asm__ volatile("cpsid i" ::: "memory");
+     board_start_record_power_off();
++    board_power_pair_set(false);
+     gpio_mux(POWER_HOLD, GPIO_FUNCTION_GPIO);
+     gpio_output(POWER_HOLD, false);
+     for (;;) {
+@@ -106,6 +119,7 @@ void hal_power_off(void)
+     board_bluetooth_off();
+     __asm__ volatile("cpsid i" ::: "memory");
+     board_start_record_power_off();
++    board_power_pair_set(false);
+     gpio_mux(POWER_HOLD, GPIO_FUNCTION_GPIO);
+     gpio_output(POWER_HOLD, false);
+     for (;;) {
+diff --git a/platform/device/board/usb.c b/platform/device/board/usb.c
+index becf322..43e970d 100644
+--- a/platform/device/board/usb.c
++++ b/platform/device/board/usb.c
+@@ -3,6 +3,7 @@
+ #include <stddef.h>
+ 
+ #include "board.h"
++#include "device/board_pins.h"
+ #include "cru.h"
+ #include "gpio.h"
+ #include "hal/clock.h"
+@@ -136,7 +137,6 @@ static const GrfWrite PHY_OFF[] = {
+ static HalUsbCore core_registers;
+ 
+ static const GpioPin AMP_ENABLE = {1, 4};
+-static const GpioPin AUDIO_MUTE = {2, 0};
+ static const GpioPin DAC_POWER = {2, 2};
+ 
+ static uint32_t read_register(uint32_t offset)
+@@ -196,10 +196,12 @@ void usb_silence_audio(void)
+ {
+     cru_gate(GATE_GPIO1, true);
+     gpio_mux(AMP_ENABLE, GPIO_FUNCTION_GPIO);
+-    gpio_mux(AUDIO_MUTE, GPIO_FUNCTION_GPIO);
++    PinRef mute_pin = board_dac_pin(DAC_PIN_MUTE);
++    GpioPin audio_mute = {mute_pin.port, mute_pin.pin};
++    gpio_mux(audio_mute, GPIO_FUNCTION_GPIO);
+     gpio_mux(DAC_POWER, GPIO_FUNCTION_GPIO);
+     gpio_output(AMP_ENABLE, false);
+-    gpio_output(AUDIO_MUTE, true);
++    gpio_output(audio_mute, true);
+     gpio_output(DAC_POWER, false);
+ }
+ 
+diff --git a/platform/device/logic/CMakeLists.txt b/platform/device/logic/CMakeLists.txt
+index eaf0596..ea931da 100644
+--- a/platform/device/logic/CMakeLists.txt
++++ b/platform/device/logic/CMakeLists.txt
+@@ -71,6 +71,7 @@ add_library(echo_device_logic STATIC
+     audio_math.c
+     backlight.c
+     battery_gauge.c
++    board_pins.c
+     watchdog.c
+     bt_module.c
+     card_write.c
+@@ -112,6 +113,7 @@ add_library(echo_device_logic STATIC
+     usb_audio_sink.c
+     usb_device.c
+     usb_fallback.c
++    vop.c
+     wav_source.c
+ )
+ if(CMAKE_CROSSCOMPILING)
+diff --git a/platform/device/logic/board_pins.c b/platform/device/logic/board_pins.c
+new file mode 100644
+index 0000000..dc8e258
+--- /dev/null
++++ b/platform/device/logic/board_pins.c
+@@ -0,0 +1,30 @@
++#include "device/board_pins.h"
++
++static const PinRef ECHO_DAC_PINS[] = {
++    [DAC_PIN_MUTE] = {2, 1, true},     [DAC_PIN_ENABLE_A] = {2, 14, true},
++    [DAC_PIN_ENABLE_B] = {2, 2, true}, [DAC_PIN_RESET] = {0, 0, false},
++    [DAC_PIN_AMP] = {1, 4, true},
++};
++
++static const PinRef ECHO_POWER_PAIR[BOARD_POWER_PAIR_PINS] = {{0, 14, true}, {2, 0, true}};
++
++PinRef board_dac_pin(DacPin pin)
++{
++    return ECHO_DAC_PINS[pin];
++}
++
++uint32_t board_power_pair(PinRef pins[BOARD_POWER_PAIR_PINS])
++{
++    for (uint32_t index = 0; index < BOARD_POWER_PAIR_PINS; index++) {
++        pins[index] = ECHO_POWER_PAIR[index];
++    }
++    return BOARD_POWER_PAIR_PINS;
++}
++
++JackKind board_jack_kind(bool single_ended_high, bool balanced_high)
++{
++    if (balanced_high) {
++        return JACK_BALANCED;
++    }
++    return single_ended_high ? JACK_SINGLE_ENDED : JACK_NONE;
++}
+diff --git a/platform/device/logic/include/device/board_pins.h b/platform/device/logic/include/device/board_pins.h
+new file mode 100644
+index 0000000..9d65db9
+--- /dev/null
++++ b/platform/device/logic/include/device/board_pins.h
+@@ -0,0 +1,21 @@
++#pragma once
++
++#include <stdbool.h>
++#include <stdint.h>
++
++#include "device/dac_sequence.h"
++#include "device/jack_sense.h"
++
++typedef struct PinRef {
++    uint8_t port;
++    uint8_t pin;
++    bool present;
++} PinRef;
++
++enum {
++    BOARD_POWER_PAIR_PINS = 2
++};
++
++PinRef board_dac_pin(DacPin pin);
++uint32_t board_power_pair(PinRef pins[BOARD_POWER_PAIR_PINS]);
++JackKind board_jack_kind(bool single_ended_high, bool balanced_high);
+diff --git a/platform/device/logic/include/device/jack_sense.h b/platform/device/logic/include/device/jack_sense.h
+index 6c92680..7d6d754 100644
+--- a/platform/device/logic/include/device/jack_sense.h
++++ b/platform/device/logic/include/device/jack_sense.h
+@@ -20,5 +20,4 @@ typedef struct JackSense {
+     uint8_t matches;
+ } JackSense;
+ 
+-JackKind jack_kind_of(bool single_ended_high, bool balanced_high);
+ bool jack_sense_sample(JackSense *sense, JackKind reading);
+diff --git a/platform/device/logic/include/device/panel.h b/platform/device/logic/include/device/panel.h
+index 670a1ff..0d398e1 100644
+--- a/platform/device/logic/include/device/panel.h
++++ b/platform/device/logic/include/device/panel.h
+@@ -4,21 +4,9 @@
+ #include <stdint.h>
+ 
+ enum {
+-    PANEL_FIRST_VISIBLE_ROW = 35,
+-    PANEL_BUS_DATA_SHIFT = 16,
+-    PANEL_BUS_WR = 1u << 24,
+-    PANEL_BUS_DC = 1u << 25,
+-    PANEL_BUS_READ_STROBE = 1u << 12,
+-    PANEL_READ_ID_COMMAND = 0x04,
+-    PANEL_ID_VARIANT_MASK = 0xFF0000,
+-    PANEL_ID_VARIANT_A = 0xE80000
++    PANEL_FIRST_VISIBLE_ROW = 49
+ };
+ 
+-typedef enum PanelVariant {
+-    PANEL_VARIANT_A,
+-    PANEL_VARIANT_B
+-} PanelVariant;
+-
+ typedef struct PanelBus {
+     void (*command)(void *context, uint8_t command);
+     void (*data)(void *context, uint8_t value);
+@@ -42,8 +30,6 @@ typedef struct PanelWindow {
+     PanelRotation rotation;
+ } PanelWindow;
+ 
+-void panel_send_init(const PanelBus *bus, PanelVariant variant);
++void panel_send_init(const PanelBus *bus);
+ void panel_set_rotation(const PanelBus *bus, PanelRotation rotation);
+ void panel_begin_write(const PanelBus *bus, PanelWindow window);
+-uint32_t panel_bus_word(uint32_t shadow, uint8_t value, bool data);
+-PanelVariant panel_variant_of_id(uint32_t id);
+diff --git a/platform/device/logic/include/device/vop.h b/platform/device/logic/include/device/vop.h
+new file mode 100644
+index 0000000..6a589ce
+--- /dev/null
++++ b/platform/device/logic/include/device/vop.h
+@@ -0,0 +1,29 @@
++#pragma once
++
++#include <stdbool.h>
++#include <stdint.h>
++
++enum {
++    VOP_CONTROL = 0x00 / 4,
++    VOP_TIMING = 0x08 / 4,
++    VOP_STATUS = 0x24 / 4,
++    VOP_COMMAND = 0x28 / 4,
++    VOP_DATA = 0x2C / 4,
++    VOP_CONTROL_COMMANDS = 0x800,
++    VOP_CONTROL_PIXELS = 0x2,
++    VOP_TIMING_ENABLE = 0x1000,
++    VOP_TIMING_STROBE_SHIFT = 5,
++    VOP_STROBE_NS = 20,
++    VOP_CYCLE_NS = 70,
++    VOP_STATUS_BUSY = 1,
++    VOP_BUSY_TRIES = 100001,
++    VOP_PIXEL_BURST = 4
++};
++
++uint32_t vop_timing_for_mhz(uint32_t mhz);
++void vop_start(volatile uint32_t *registers, uint32_t mhz);
++void vop_set_clock(volatile uint32_t *registers, uint32_t mhz);
++bool vop_wait_idle(volatile uint32_t *registers);
++void vop_command(volatile uint32_t *registers, uint8_t command);
++void vop_data(volatile uint32_t *registers, uint8_t value);
++void vop_pixels(volatile uint32_t *registers, const uint16_t *pixels, uint32_t count);
+diff --git a/platform/device/logic/jack_sense.c b/platform/device/logic/jack_sense.c
+index 3c3a91a..c7ff1d4 100644
+--- a/platform/device/logic/jack_sense.c
++++ b/platform/device/logic/jack_sense.c
+@@ -1,13 +1,5 @@
+ #include "device/jack_sense.h"
+ 
+-JackKind jack_kind_of(bool single_ended_high, bool balanced_high)
+-{
+-    if (!balanced_high) {
+-        return JACK_BALANCED;
+-    }
+-    return single_ended_high ? JACK_SINGLE_ENDED : JACK_NONE;
+-}
+-
+ bool jack_sense_sample(JackSense *sense, JackKind reading)
+ {
+     if (!sense->started) {
+diff --git a/platform/device/logic/panel.c b/platform/device/logic/panel.c
+index d51eb5e..cefb8e2 100644
+--- a/platform/device/logic/panel.c
++++ b/platform/device/logic/panel.c
+@@ -11,26 +11,20 @@ enum {
+     COMMAND_MEMORY_ACCESS = 0x36
+ };
+ 
+-static const uint8_t MEMORY_ACCESS_FOR[PANEL_ROTATION_COUNT] = {0x60, 0xC0, 0x00};
++static const uint8_t MEMORY_ACCESS_FOR[PANEL_ROTATION_COUNT] = {0x28, 0x88, 0x48};
+ 
+-static const uint8_t VARIANT_B_STEPS[] = {
+-    0x11, 0,    0x36, 1,    0x60, 0x3A, 1,    0x05, 0xA4, 2,    0x44, 0x44, 0xB2, 5,
+-    0x0C, 0x0C, 0x00, 0x33, 0x33, 0xB7, 1,    0x35, 0xBB, 1,    0x1A, 0xC0, 1,    0x2C,
+-    0xC2, 1,    0x01, 0xC3, 1,    0x0B, 0xC4, 1,    0x20, 0xC6, 1,    0x0F, 0xD0, 2,
+-    0xA4, 0xA1, 0xD6, 1,    0xA1, 0xE0, 14,   0xF0, 0x06, 0x0B, 0x07, 0x07, 0x24, 0x2E,
+-    0x32, 0x46, 0x37, 0x13, 0x13, 0x2D, 0x33, 0xE1, 14,   0xF0, 0x02, 0x06, 0x09, 0x08,
+-    0x05, 0x29, 0x44, 0x42, 0x38, 0x14, 0x14, 0x2A, 0x30, 0x2A, 4,    0x00, 0x00, 0x00,
+-    0xEF, 0x2B, 4,    0x00, 0x23, 0x00, 0xCC, 0x21, 0,    0x29, 0,    0x2C, 0,    STEP_END,
+-};
+-
+-static const uint8_t VARIANT_A_STEPS[] = {
+-    0x11, 0,    0xDF, 4,    0x5A, 0x69, 0x02, 0x01, 0x36, 1,    0x60, 0x3A, 1,
+-    0x05, 0xB2, 5,    0x0B, 0x0B, 0x00, 0x33, 0x33, 0xB7, 1,    0x75, 0xBB, 1,
+-    0x28, 0xC0, 1,    0x2C, 0xC2, 1,    0x01, 0xC3, 1,    0x1F, 0xC5, 1,    0x2A,
+-    0xC6, 1,    0x13, 0xD0, 1,    0xA7, 0xD0, 2,    0xA4, 0xA1, 0xD6, 1,    0xA1,
+-    0xE0, 14,   0xF0, 0x05, 0x0A, 0x06, 0x06, 0x03, 0x2B, 0x32, 0x43, 0x36, 0x11,
+-    0x10, 0x2B, 0x32, 0xE1, 14,   0xF0, 0x08, 0x0C, 0x0B, 0x09, 0x24, 0x2B, 0x22,
+-    0x43, 0x38, 0x15, 0x16, 0x2F, 0x37, 0x21, 0,    0x29, 0,    0x2C, 0,    STEP_END,
++static const uint8_t ST7796S_STEPS[] = {
++    0x11, 0,        0xF0, 1,    0xC3, 0xF0, 1,    0x96, 0x36, 1,    0x28,
++    0x3A, 1,        0x55, 0xB4, 1,    0x01, 0xB6, 3,    0x20, 0x02, 0x3B,
++    0xB7, 1,        0xC6, 0xB9, 2,    0x02, 0xE0, 0xC0, 2,    0xC0, 0x64,
++    0xC1, 1,        0x1D, 0xC2, 1,    0xA7, 0xC5, 1,    0x28, 0xE8, 8,
++    0x40, 0x8A,     0x00, 0x00, 0x29, 0x19, 0xA5, 0x33, 0xE0, 14,   0xF0,
++    0x0B, 0x12,     0x09, 0x0A, 0x26, 0x39, 0x54, 0x4E, 0x38, 0x13, 0x13,
++    0x2E, 0x34,     0xE1, 14,   0xF0, 0x10, 0x15, 0x0D, 0x0C, 0x07, 0x38,
++    0x43, 0x4D,     0x3A, 0x16, 0x15, 0x30, 0x35, 0xF0, 1,    0x3C, 0xF0,
++    1,    0x69,     0x35, 1,    0x00, 0x29, 0,    0x21, 0,    0x2A, 4,
++    0x00, 0x31,     0x01, 0x0E, 0x2B, 4,    0x00, 0x00, 0x01, 0xDF, 0x2C,
++    0,    STEP_END,
+ };
+ 
+ static size_t send_step(const PanelBus *bus, const uint8_t *step)
+@@ -46,9 +40,9 @@ static size_t send_step(const PanelBus *bus, const uint8_t *step)
+     return 2u + count;
+ }
+ 
+-void panel_send_init(const PanelBus *bus, PanelVariant variant)
++void panel_send_init(const PanelBus *bus)
+ {
+-    const uint8_t *step = variant == PANEL_VARIANT_A ? VARIANT_A_STEPS : VARIANT_B_STEPS;
++    const uint8_t *step = ST7796S_STEPS;
+     while (*step != STEP_END) {
+         step += send_step(bus, step);
+     }
+@@ -81,15 +75,3 @@ void panel_begin_write(const PanelBus *bus, PanelWindow window)
+     send_range(bus, COMMAND_ROWS, first_row, first_row + window.height - 1);
+     bus->command(bus->context, COMMAND_WRITE);
+ }
+-
+-PanelVariant panel_variant_of_id(uint32_t id)
+-{
+-    return (id & PANEL_ID_VARIANT_MASK) == PANEL_ID_VARIANT_A ? PANEL_VARIANT_A : PANEL_VARIANT_B;
+-}
+-
+-uint32_t panel_bus_word(uint32_t shadow, uint8_t value, bool data)
+-{
+-    uint32_t bus_bits = (0xFFu << PANEL_BUS_DATA_SHIFT) | PANEL_BUS_WR | PANEL_BUS_DC;
+-    uint32_t word = (shadow & ~bus_bits) | ((uint32_t)value << PANEL_BUS_DATA_SHIFT);
+-    return data ? word | PANEL_BUS_DC : word;
+-}
+diff --git a/platform/device/logic/vop.c b/platform/device/logic/vop.c
+new file mode 100644
+index 0000000..f911c76
+--- /dev/null
++++ b/platform/device/logic/vop.c
+@@ -0,0 +1,69 @@
++#include "device/vop.h"
++
++bool vop_wait_idle(volatile uint32_t *registers)
++{
++    for (int tries = 0; tries < VOP_BUSY_TRIES; tries++) {
++        if ((registers[VOP_STATUS] & VOP_STATUS_BUSY) == 0) {
++            return true;
++        }
++    }
++    return false;
++}
++
++static void set_control(volatile uint32_t *registers, uint32_t value)
++{
++    if (registers[VOP_CONTROL] != value) {
++        vop_wait_idle(registers);
++        registers[VOP_CONTROL] = value;
++    }
++}
++
++static uint32_t cycles_for(uint32_t mhz, uint32_t nanoseconds)
++{
++    uint32_t cycles = (mhz * nanoseconds + 999u) / 1000u;
++    return cycles == 0 ? 1u : cycles;
++}
++
++uint32_t vop_timing_for_mhz(uint32_t mhz)
++{
++    uint32_t strobe = cycles_for(mhz, VOP_STROBE_NS);
++    uint32_t cycle = cycles_for(mhz, VOP_CYCLE_NS);
++    uint32_t rest = strobe + 2u < cycle ? cycle - 1u - strobe : 1u;
++    return rest | strobe << VOP_TIMING_STROBE_SHIFT | VOP_TIMING_ENABLE;
++}
++
++void vop_start(volatile uint32_t *registers, uint32_t mhz)
++{
++    registers[VOP_CONTROL] = VOP_CONTROL_COMMANDS;
++    registers[VOP_TIMING] = vop_timing_for_mhz(mhz);
++}
++
++void vop_set_clock(volatile uint32_t *registers, uint32_t mhz)
++{
++    vop_wait_idle(registers);
++    registers[VOP_TIMING] = vop_timing_for_mhz(mhz);
++}
++
++void vop_command(volatile uint32_t *registers, uint8_t command)
++{
++    set_control(registers, VOP_CONTROL_COMMANDS);
++    registers[VOP_COMMAND] = command;
++}
++
++void vop_data(volatile uint32_t *registers, uint8_t value)
++{
++    set_control(registers, VOP_CONTROL_COMMANDS);
++    registers[VOP_DATA] = value;
++}
++
++void vop_pixels(volatile uint32_t *registers, const uint16_t *pixels, uint32_t count)
++{
++    set_control(registers, VOP_CONTROL_PIXELS);
++    for (uint32_t index = 0; index < count; index++) {
++        registers[VOP_DATA] = pixels[index];
++        if ((index + 1) % VOP_PIXEL_BURST == 0) {
++            vop_wait_idle(registers);
++        }
++    }
++    vop_wait_idle(registers);
++}
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index 420496f..beb479a 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -218,7 +218,7 @@ echo_add_unit_test(NAME test_test_pattern_screen
+     PRIVATE_INCLUDES ${PROJECT_SOURCE_DIR}/src/app
+ )
+ 
+-foreach(device_test audio_math backlight battery_gauge watchdog panic_text stall_watch bt_module card_write core1_control start_record dac_sequence dma_loop flac_accel jack_sense key_ladder key_scanner msc panel pll sd_card stream_drift tick_clock updater usb_audio usb_audio_sink usb_device usb_fallback wav_source)
++foreach(device_test audio_math backlight battery_gauge board_pins vop watchdog panic_text stall_watch bt_module card_write core1_control start_record dac_sequence dma_loop flac_accel jack_sense key_ladder key_scanner msc panel pll sd_card stream_drift tick_clock updater usb_audio usb_audio_sink usb_device usb_fallback wav_source)
+     echo_add_unit_test(NAME test_${device_test}
+         SOURCES device/test_${device_test}.c
+         LIBRARIES echo_device_logic
+diff --git a/tests/device/test_board_pins.c b/tests/device/test_board_pins.c
+new file mode 100644
+index 0000000..4c0ed4f
+--- /dev/null
++++ b/tests/device/test_board_pins.c
+@@ -0,0 +1,51 @@
++#include "check.h"
++#include "device/board_pins.h"
++
++static void the_echo_mutes_on_gpio_2_1_and_has_no_dac_reset_pin(void)
++{
++    PinRef mute = board_dac_pin(DAC_PIN_MUTE);
++    CHECK(mute.present);
++    CHECK_EQUAL(2, mute.port);
++    CHECK_EQUAL(1, mute.pin);
++    CHECK(!board_dac_pin(DAC_PIN_RESET).present);
++}
++
++static void the_enable_and_amp_pins_sit_on_their_gpios(void)
++{
++    CHECK(board_dac_pin(DAC_PIN_ENABLE_A).present);
++    CHECK(board_dac_pin(DAC_PIN_ENABLE_B).present);
++    CHECK(board_dac_pin(DAC_PIN_AMP).present);
++    CHECK_EQUAL(14, board_dac_pin(DAC_PIN_ENABLE_A).pin);
++    CHECK_EQUAL(2, board_dac_pin(DAC_PIN_ENABLE_B).pin);
++    CHECK_EQUAL(1, board_dac_pin(DAC_PIN_AMP).port);
++    CHECK_EQUAL(4, board_dac_pin(DAC_PIN_AMP).pin);
++}
++
++static void the_echo_has_a_power_pair_on_gpio_0_14_and_2_0(void)
++{
++    PinRef pins[BOARD_POWER_PAIR_PINS];
++    CHECK_EQUAL(2, board_power_pair(pins));
++    CHECK_EQUAL(0, pins[0].port);
++    CHECK_EQUAL(14, pins[0].pin);
++    CHECK_EQUAL(2, pins[1].port);
++    CHECK_EQUAL(0, pins[1].pin);
++}
++
++static void the_echo_treats_a_high_4_4_pin_as_plugged(void)
++{
++    CHECK_EQUAL(JACK_BALANCED, board_jack_kind(false, true));
++    CHECK_EQUAL(JACK_BALANCED, board_jack_kind(true, true));
++    CHECK_EQUAL(JACK_SINGLE_ENDED, board_jack_kind(true, false));
++    CHECK_EQUAL(JACK_NONE, board_jack_kind(false, false));
++}
++
++int main(void)
++{
++    static const TestCase cases[] = {
++        TEST_CASE(the_echo_mutes_on_gpio_2_1_and_has_no_dac_reset_pin),
++        TEST_CASE(the_enable_and_amp_pins_sit_on_their_gpios),
++        TEST_CASE(the_echo_has_a_power_pair_on_gpio_0_14_and_2_0),
++        TEST_CASE(the_echo_treats_a_high_4_4_pin_as_plugged),
++    };
++    return test_run_all(cases, TEST_CASE_COUNT(cases));
++}
+diff --git a/tests/device/test_jack_sense.c b/tests/device/test_jack_sense.c
+index af04014..4187cb5 100644
+--- a/tests/device/test_jack_sense.c
++++ b/tests/device/test_jack_sense.c
+@@ -1,14 +1,6 @@
+ #include "check.h"
+ #include "device/jack_sense.h"
+ 
+-static void the_pins_name_the_plugged_jack(void)
+-{
+-    CHECK_EQUAL(JACK_NONE, jack_kind_of(false, true));
+-    CHECK_EQUAL(JACK_SINGLE_ENDED, jack_kind_of(true, true));
+-    CHECK_EQUAL(JACK_BALANCED, jack_kind_of(false, false));
+-    CHECK_EQUAL(JACK_BALANCED, jack_kind_of(true, false));
+-}
+-
+ static void the_first_reading_is_taken_at_once(void)
+ {
+     JackSense sense = {0};
+@@ -47,7 +39,6 @@ static void a_bouncing_contact_starts_the_count_again(void)
+ int main(void)
+ {
+     static const TestCase cases[] = {
+-        TEST_CASE(the_pins_name_the_plugged_jack),
+         TEST_CASE(the_first_reading_is_taken_at_once),
+         TEST_CASE(a_change_needs_seven_matching_readings),
+         TEST_CASE(a_bouncing_contact_starts_the_count_again),
+diff --git a/tests/device/test_panel.c b/tests/device/test_panel.c
+index 8fbd3f6..6cd3d2e 100644
+--- a/tests/device/test_panel.c
++++ b/tests/device/test_panel.c
+@@ -61,28 +61,6 @@ static PanelBus recording_bus(Recorder *recorder)
+ #define D(value) {ENTRY_DATA, value}
+ #define W(value) {ENTRY_DELAY, value}
+ 
+-static const Entry VARIANT_B_INIT[] = {
+-    C(0x11), W(120),  C(0x36), D(0x60), C(0x3A), D(0x05), C(0xA4), D(0x44), D(0x44), C(0xB2),
+-    D(0x0C), D(0x0C), D(0x00), D(0x33), D(0x33), C(0xB7), D(0x35), C(0xBB), D(0x1A), C(0xC0),
+-    D(0x2C), C(0xC2), D(0x01), C(0xC3), D(0x0B), C(0xC4), D(0x20), C(0xC6), D(0x0F), C(0xD0),
+-    D(0xA4), D(0xA1), C(0xD6), D(0xA1), C(0xE0), D(0xF0), D(0x06), D(0x0B), D(0x07), D(0x07),
+-    D(0x24), D(0x2E), D(0x32), D(0x46), D(0x37), D(0x13), D(0x13), D(0x2D), D(0x33), C(0xE1),
+-    D(0xF0), D(0x02), D(0x06), D(0x09), D(0x08), D(0x05), D(0x29), D(0x44), D(0x42), D(0x38),
+-    D(0x14), D(0x14), D(0x2A), D(0x30), C(0x2A), D(0x00), D(0x00), D(0x00), D(0xEF), C(0x2B),
+-    D(0x00), D(0x23), D(0x00), D(0xCC), C(0x21), C(0x29), C(0x2C),
+-};
+-
+-static const Entry VARIANT_A_INIT[] = {
+-    C(0x11), W(120),  C(0xDF), D(0x5A), D(0x69), D(0x02), D(0x01), C(0x36), D(0x60),
+-    C(0x3A), D(0x05), C(0xB2), D(0x0B), D(0x0B), D(0x00), D(0x33), D(0x33), C(0xB7),
+-    D(0x75), C(0xBB), D(0x28), C(0xC0), D(0x2C), C(0xC2), D(0x01), C(0xC3), D(0x1F),
+-    C(0xC5), D(0x2A), C(0xC6), D(0x13), C(0xD0), D(0xA7), C(0xD0), D(0xA4), D(0xA1),
+-    C(0xD6), D(0xA1), C(0xE0), D(0xF0), D(0x05), D(0x0A), D(0x06), D(0x06), D(0x03),
+-    D(0x2B), D(0x32), D(0x43), D(0x36), D(0x11), D(0x10), D(0x2B), D(0x32), C(0xE1),
+-    D(0xF0), D(0x08), D(0x0C), D(0x0B), D(0x09), D(0x24), D(0x2B), D(0x22), D(0x43),
+-    D(0x38), D(0x15), D(0x16), D(0x2F), D(0x37), C(0x21), C(0x29), C(0x2C),
+-};
+-
+ static void check_log(const Recorder *recorder, const Entry *expected, int count)
+ {
+     CHECK_EQUAL(count, recorder->count);
+@@ -92,126 +70,143 @@ static void check_log(const Recorder *recorder, const Entry *expected, int count
+     }
+ }
+ 
+-static void variant_b_sends_its_init_stream(void)
++static const Entry ST7796S_INIT[] = {
++    C(0x11), W(120),  C(0xF0), D(0xC3), C(0xF0), D(0x96), C(0x36), D(0x28),
++    C(0x3A), D(0x55), C(0xB4), D(0x01), C(0xB6), D(0x20), D(0x02), D(0x3B),
++    C(0xB7), D(0xC6), C(0xB9), D(0x02), D(0xE0), C(0xC0), D(0xC0), D(0x64),
++    C(0xC1), D(0x1D), C(0xC2), D(0xA7), C(0xC5), D(0x28), C(0xE8), D(0x40),
++    D(0x8A), D(0x00), D(0x00), D(0x29), D(0x19), D(0xA5), D(0x33), C(0xE0),
++    D(0xF0), D(0x0B), D(0x12), D(0x09), D(0x0A), D(0x26), D(0x39), D(0x54),
++    D(0x4E), D(0x38), D(0x13), D(0x13), D(0x2E), D(0x34), C(0xE1), D(0xF0),
++    D(0x10), D(0x15), D(0x0D), D(0x0C), D(0x07), D(0x38), D(0x43), D(0x4D),
++    D(0x3A), D(0x16), D(0x15), D(0x30), D(0x35), C(0xF0), D(0x3C), C(0xF0),
++    D(0x69), C(0x35), D(0x00), C(0x29), C(0x21), C(0x2A), D(0x00), D(0x31),
++    D(0x01), D(0x0E), C(0x2B), D(0x00), D(0x00), D(0x01), D(0xDF), C(0x2C),
++};
++
++static void the_st7796s_sends_its_init_stream(void)
+ {
+     Recorder recorder;
+     PanelBus bus = recording_bus(&recorder);
+-    panel_send_init(&bus, PANEL_VARIANT_B);
+-    check_log(&recorder, VARIANT_B_INIT, (int)(sizeof VARIANT_B_INIT / sizeof VARIANT_B_INIT[0]));
++    panel_send_init(&bus);
++    check_log(&recorder, ST7796S_INIT, (int)(sizeof ST7796S_INIT / sizeof ST7796S_INIT[0]));
+ }
+ 
+-static void variant_a_sends_its_init_stream(void)
++static void the_st7796s_init_sleeps_out_before_anything_else_and_waits_120_ms(void)
+ {
+     Recorder recorder;
+     PanelBus bus = recording_bus(&recorder);
+-    panel_send_init(&bus, PANEL_VARIANT_A);
+-    check_log(&recorder, VARIANT_A_INIT, (int)(sizeof VARIANT_A_INIT / sizeof VARIANT_A_INIT[0]));
++    panel_send_init(&bus);
++    CHECK_EQUAL(ENTRY_COMMAND, recorder.entries[0].kind);
++    CHECK_EQUAL(0x11, recorder.entries[0].value);
++    CHECK_EQUAL(ENTRY_DELAY, recorder.entries[1].kind);
++    CHECK_EQUAL(120, recorder.entries[1].value);
+ }
+ 
+-static void a_window_maps_visible_rows_to_panel_rows_from_35(void)
++static void an_echo_window_maps_visible_rows_to_panel_rows_from_49(void)
+ {
+     static const Entry expected[] = {
+-        C(0x2A), D(0x00), D(0x00), D(0x01), D(0x3F), C(0x2B),
+-        D(0x00), D(0x23), D(0x00), D(0xCC), C(0x2C),
++        C(0x2A), D(0x00), D(0x00), D(0x01), D(0xDF), C(0x2B),
++        D(0x00), D(0x31), D(0x01), D(0x0E), C(0x2C),
+     };
+     Recorder recorder;
+     PanelBus bus = recording_bus(&recorder);
+-    panel_begin_write(&bus, (PanelWindow){0, 0, 320, 170, PANEL_LANDSCAPE});
++    panel_begin_write(&bus, (PanelWindow){0, 0, 480, 222, PANEL_LANDSCAPE});
+     check_log(&recorder, expected, (int)(sizeof expected / sizeof expected[0]));
+ }
+ 
+-static void a_partial_window_sets_its_columns_and_rows(void)
++static void a_partial_echo_window_keeps_columns_plain_and_offsets_rows(void)
+ {
+     static const Entry expected[] = {
+         C(0x2A), D(0x00), D(0x0A), D(0x01), D(0x09), C(0x2B),
+-        D(0x00), D(0x45), D(0x00), D(0x66), C(0x2C),
++        D(0x00), D(0x5B), D(0x00), D(0x7C), C(0x2C),
+     };
+     Recorder recorder;
+     PanelBus bus = recording_bus(&recorder);
+-    panel_begin_write(&bus, (PanelWindow){10, 34, 256, 34, PANEL_LANDSCAPE});
++    panel_begin_write(&bus, (PanelWindow){10, 42, 256, 34, PANEL_LANDSCAPE});
+     check_log(&recorder, expected, (int)(sizeof expected / sizeof expected[0]));
+ }
+ 
+-static void each_rotation_sets_its_memory_access_mode(void)
++static void the_board_default_window_offset_follows_the_board(void)
+ {
+-    static const uint8_t modes[PANEL_ROTATION_COUNT] = {0x60, 0xC0, 0x00};
+-    for (int rotation = 0; rotation < PANEL_ROTATION_COUNT; rotation++) {
+-        Entry expected[] = {C(0x36), D(modes[rotation])};
+-        Recorder recorder;
+-        PanelBus bus = recording_bus(&recorder);
+-        panel_set_rotation(&bus, (PanelRotation)rotation);
+-        check_log(&recorder, expected, 2);
+-    }
++    CHECK_EQUAL(49, PANEL_FIRST_VISIBLE_ROW);
+ }
+ 
+-static void a_portrait_window_maps_visible_columns_from_35(void)
++static void landscape_is_the_stock_memory_access_byte(void)
+ {
+-    static const Entry expected[] = {
+-        C(0x2A), D(0x00), D(0x23), D(0x00), D(0xCC), C(0x2B),
+-        D(0x00), D(0x00), D(0x01), D(0x3F), C(0x2C),
+-    };
++    static const Entry expected[] = {C(0x36), D(0x28)};
+     Recorder recorder;
+     PanelBus bus = recording_bus(&recorder);
+-    panel_begin_write(&bus, (PanelWindow){0, 0, 170, 320, PANEL_PORTRAIT_FLIPPED});
+-    check_log(&recorder, expected, (int)(sizeof expected / sizeof expected[0]));
++    panel_set_rotation(&bus, PANEL_LANDSCAPE);
++    check_log(&recorder, expected, 2);
+ }
+ 
+-static void pixels_are_sent_high_byte_first(void)
++static void the_two_portrait_turns_mirror_each_other_on_the_same_axis_pair(void)
+ {
+-    static const uint16_t pixels[] = {0xF800, 0x1234};
+-    static const Entry expected[] = {D(0xF8), D(0x00), D(0x12), D(0x34)};
++    static const Entry upright[] = {C(0x36), D(0x88)};
++    static const Entry flipped[] = {C(0x36), D(0x48)};
+     Recorder recorder;
+     PanelBus bus = recording_bus(&recorder);
+-    bus.pixels(bus.context, pixels, 2);
+-    check_log(&recorder, expected, 4);
++    panel_set_rotation(&bus, PANEL_PORTRAIT);
++    check_log(&recorder, upright, 2);
++    bus = recording_bus(&recorder);
++    panel_set_rotation(&bus, PANEL_PORTRAIT_FLIPPED);
++    check_log(&recorder, flipped, 2);
+ }
+ 
+-static void a_bus_word_puts_the_byte_on_bits_16_to_23(void)
++static void an_unknown_rotation_falls_back_to_landscape(void)
+ {
+-    CHECK_EQUAL(0x00AB0000u, panel_bus_word(0, 0xAB, false));
+-}
+-
+-static void a_data_byte_sets_dc_on_bit_25(void)
+-{
+-    CHECK_EQUAL(0x02AB0000u, panel_bus_word(0, 0xAB, true));
++    static const Entry expected[] = {C(0x36), D(0x28)};
++    Recorder recorder;
++    PanelBus bus = recording_bus(&recorder);
++    panel_set_rotation(&bus, PANEL_ROTATION_COUNT);
++    check_log(&recorder, expected, 2);
+ }
+ 
+-static void a_bus_word_keeps_other_port_bits_and_clears_bus_bits(void)
++static void a_portrait_window_offsets_the_columns_and_keeps_the_rows_plain(void)
+ {
+-    uint32_t shadow = 0x00001000u | 0x80000001u | 0x03FF0000u;
+-    CHECK_EQUAL(0x80001001u | 0x00120000u, panel_bus_word(shadow, 0x12, false));
++    static const Entry expected[] = {
++        C(0x2A), D(0x00), D(0x31), D(0x01), D(0x0E), C(0x2B),
++        D(0x00), D(0x00), D(0x01), D(0xDF), C(0x2C),
++    };
++    Recorder recorder;
++    PanelBus bus = recording_bus(&recorder);
++    panel_begin_write(&bus, (PanelWindow){0, 0, 222, 480, PANEL_PORTRAIT});
++    check_log(&recorder, expected, (int)(sizeof expected / sizeof expected[0]));
++    bus = recording_bus(&recorder);
++    panel_begin_write(&bus, (PanelWindow){0, 0, 222, 480, PANEL_PORTRAIT_FLIPPED});
++    check_log(&recorder, expected, (int)(sizeof expected / sizeof expected[0]));
+ }
+ 
+-static void the_write_strobe_is_bit_24(void)
++static void the_visible_window_sits_in_the_middle_of_the_320_wide_memory(void)
+ {
+-    CHECK_EQUAL(0x01000000u, PANEL_BUS_WR);
++    CHECK_EQUAL(319, PANEL_FIRST_VISIBLE_ROW + (PANEL_FIRST_VISIBLE_ROW + 221));
+ }
+ 
+-static void an_e8_second_id_byte_selects_variant_a(void)
++static void pixels_are_sent_high_byte_first(void)
+ {
+-    CHECK_EQUAL(PANEL_VARIANT_A, panel_variant_of_id(0x00E80000u));
+-    CHECK_EQUAL(PANEL_VARIANT_A, panel_variant_of_id(0x12E856ABu));
+-    CHECK_EQUAL(PANEL_VARIANT_B, panel_variant_of_id(0x00000000u));
+-    CHECK_EQUAL(PANEL_VARIANT_B, panel_variant_of_id(0xFFFFFFFFu));
+-    CHECK_EQUAL(PANEL_VARIANT_B, panel_variant_of_id(0x66666666u));
+-    CHECK_EQUAL(PANEL_VARIANT_B, panel_variant_of_id(0x00E90000u));
++    static const uint16_t pixels[] = {0xF800, 0x1234};
++    static const Entry expected[] = {D(0xF8), D(0x00), D(0x12), D(0x34)};
++    Recorder recorder;
++    PanelBus bus = recording_bus(&recorder);
++    bus.pixels(bus.context, pixels, 2);
++    check_log(&recorder, expected, 4);
+ }
+ 
+ int main(void)
+ {
+     static const TestCase cases[] = {
+-        TEST_CASE(variant_b_sends_its_init_stream),
+-        TEST_CASE(variant_a_sends_its_init_stream),
+-        TEST_CASE(a_window_maps_visible_rows_to_panel_rows_from_35),
+-        TEST_CASE(a_partial_window_sets_its_columns_and_rows),
+-        TEST_CASE(each_rotation_sets_its_memory_access_mode),
+-        TEST_CASE(a_portrait_window_maps_visible_columns_from_35),
++        TEST_CASE(the_st7796s_sends_its_init_stream),
++        TEST_CASE(the_st7796s_init_sleeps_out_before_anything_else_and_waits_120_ms),
++        TEST_CASE(an_echo_window_maps_visible_rows_to_panel_rows_from_49),
++        TEST_CASE(a_partial_echo_window_keeps_columns_plain_and_offsets_rows),
++        TEST_CASE(the_board_default_window_offset_follows_the_board),
++        TEST_CASE(landscape_is_the_stock_memory_access_byte),
++        TEST_CASE(the_two_portrait_turns_mirror_each_other_on_the_same_axis_pair),
++        TEST_CASE(an_unknown_rotation_falls_back_to_landscape),
++        TEST_CASE(a_portrait_window_offsets_the_columns_and_keeps_the_rows_plain),
++        TEST_CASE(the_visible_window_sits_in_the_middle_of_the_320_wide_memory),
+         TEST_CASE(pixels_are_sent_high_byte_first),
+-        TEST_CASE(a_bus_word_puts_the_byte_on_bits_16_to_23),
+-        TEST_CASE(a_data_byte_sets_dc_on_bit_25),
+-        TEST_CASE(a_bus_word_keeps_other_port_bits_and_clears_bus_bits),
+-        TEST_CASE(the_write_strobe_is_bit_24),
+-        TEST_CASE(an_e8_second_id_byte_selects_variant_a),
+     };
+     return test_run_all(cases, TEST_CASE_COUNT(cases));
+ }
+diff --git a/tests/device/test_vop.c b/tests/device/test_vop.c
+new file mode 100644
+index 0000000..7df2bde
+--- /dev/null
++++ b/tests/device/test_vop.c
+@@ -0,0 +1,104 @@
++#include "check.h"
++#include "device/vop.h"
++
++enum {
++    REGISTER_COUNT = 16
++};
++
++static void a_start_selects_command_mode_and_the_timing_for_the_clock(void)
++{
++    uint32_t registers[REGISTER_COUNT] = {0};
++    vop_start(registers, 96);
++    CHECK_EQUAL(0x800, registers[VOP_CONTROL]);
++    CHECK_EQUAL(0x1044, registers[VOP_TIMING]);
++}
++
++static void the_crystal_clock_gives_the_stock_echo_timing(void)
++{
++    CHECK_EQUAL(0x1021, vop_timing_for_mhz(24));
++}
++
++static void a_faster_clock_stretches_the_write_strobe_and_cycle(void)
++{
++    CHECK_EQUAL(0x1044, vop_timing_for_mhz(96));
++    CHECK_EQUAL(0x1089, vop_timing_for_mhz(200));
++}
++
++static void a_clock_change_rewrites_only_the_timing(void)
++{
++    uint32_t registers[REGISTER_COUNT] = {0};
++    vop_start(registers, 24);
++    vop_set_clock(registers, 200);
++    CHECK_EQUAL(0x800, registers[VOP_CONTROL]);
++    CHECK_EQUAL(0x1089, registers[VOP_TIMING]);
++}
++
++static void a_command_goes_to_the_command_register_in_command_mode(void)
++{
++    uint32_t registers[REGISTER_COUNT] = {0};
++    vop_command(registers, 0x2A);
++    CHECK_EQUAL(0x800, registers[VOP_CONTROL]);
++    CHECK_EQUAL(0x2A, registers[VOP_COMMAND]);
++}
++
++static void a_parameter_goes_to_the_data_register_in_command_mode(void)
++{
++    uint32_t registers[REGISTER_COUNT] = {0};
++    vop_data(registers, 0xC3);
++    CHECK_EQUAL(0x800, registers[VOP_CONTROL]);
++    CHECK_EQUAL(0xC3, registers[VOP_DATA]);
++}
++
++static void pixels_switch_to_pixel_mode_and_the_next_command_switches_back(void)
++{
++    uint32_t registers[REGISTER_COUNT] = {0};
++    static const uint16_t pixels[] = {0xF800, 0x07E0, 0x001F};
++    vop_command(registers, 0x2C);
++    vop_pixels(registers, pixels, 3);
++    CHECK_EQUAL(0x2, registers[VOP_CONTROL]);
++    CHECK_EQUAL(0x001F, registers[VOP_DATA]);
++    vop_command(registers, 0x2A);
++    CHECK_EQUAL(0x800, registers[VOP_CONTROL]);
++}
++
++static void each_pixel_is_one_sixteen_bit_write_to_the_data_register(void)
++{
++    uint32_t registers[REGISTER_COUNT] = {0};
++    static const uint16_t pixels[] = {0x1234};
++    vop_pixels(registers, pixels, 1);
++    CHECK_EQUAL(0x1234, registers[VOP_DATA]);
++}
++
++static void a_busy_controller_makes_the_wait_give_up(void)
++{
++    uint32_t registers[REGISTER_COUNT] = {0};
++    CHECK(vop_wait_idle(registers));
++    registers[VOP_STATUS] = VOP_STATUS_BUSY;
++    CHECK(!vop_wait_idle(registers));
++}
++
++static void an_unchanged_mode_is_not_rewritten(void)
++{
++    uint32_t registers[REGISTER_COUNT] = {0};
++    registers[VOP_CONTROL] = 0x800;
++    registers[VOP_STATUS] = VOP_STATUS_BUSY;
++    vop_data(registers, 0x11);
++    CHECK_EQUAL(0x11, registers[VOP_DATA]);
++}
++
++int main(void)
++{
++    static const TestCase cases[] = {
++        TEST_CASE(a_start_selects_command_mode_and_the_timing_for_the_clock),
++        TEST_CASE(the_crystal_clock_gives_the_stock_echo_timing),
++        TEST_CASE(a_faster_clock_stretches_the_write_strobe_and_cycle),
++        TEST_CASE(a_clock_change_rewrites_only_the_timing),
++        TEST_CASE(a_command_goes_to_the_command_register_in_command_mode),
++        TEST_CASE(a_parameter_goes_to_the_data_register_in_command_mode),
++        TEST_CASE(pixels_switch_to_pixel_mode_and_the_next_command_switches_back),
++        TEST_CASE(each_pixel_is_one_sixteen_bit_write_to_the_data_register),
++        TEST_CASE(a_busy_controller_makes_the_wait_give_up),
++        TEST_CASE(an_unchanged_mode_is_not_rewritten),
++    };
++    return test_run_all(cases, TEST_CASE_COUNT(cases));
++}

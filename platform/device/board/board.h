@@ -66,6 +66,7 @@ void board_wait_for_key(void);
 void board_main(void);
 bool board_usb_listening(void);
 void board_power_hold(void);
+void board_power_pair_set(bool on);
 void board_power_cut(void);
 bool board_power_key_down(void);
 void board_panic_poll_power(uint32_t now_ms);

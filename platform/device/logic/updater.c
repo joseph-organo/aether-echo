@@ -26,7 +26,7 @@ enum {
     FW_END = 0x500000,
     CHUNK_COUNT = FW_END / UPDATER_CHUNK_BYTES,
     BRAND_OFFSET = 0x10,
-    STOCK_FW_END = 0x2000000,
+    STOCK_FW_END = 0x2600000,
     MARKER_LENGTH = 11,
     MARKER_CARRY = MARKER_LENGTH - 1,
     PASSES = 2
@@ -39,17 +39,19 @@ enum {
 
 static const uint8_t MAGIC[8] = {'R', 'K', 'n', 'a', 'n', 'o', 'F', 'W'};
 static const uint8_t STOCK_BRAND[8] = {'R', 'o', 'c', 'k', 'c', 'h', 'i', 'p'};
-static const uint8_t EIGHT_GB_MARKER[MARKER_LENGTH] = {'H', 'I', 'F', 'I', 'E', 'C',
+static const uint8_t ECHO_MARKER[MARKER_LENGTH] = {'E', 'C', 'H', 'O', 'V', '1',
+                                                   '0', '0', 'I', 'M', 'G'};
+static const uint8_t MINI_8GB_MARKER[MARKER_LENGTH] = {'H', 'I', 'F', 'I', 'E', 'C',
                                                        '0', '0', 'I', 'M', 'G'};
-static const uint8_t SMALL_MODEL_MARKER[MARKER_LENGTH] = {'M', 'I', 'N', 'I', 'V', '1',
-                                                          '0', '0', 'I', 'M', 'G'};
+static const uint8_t MINI_512MB_MARKER[MARKER_LENGTH] = {'M', 'I', 'N', 'I', 'V', '1',
+                                                         '0', '0', 'I', 'M', 'G'};
 static const uint32_t ROW_2[4] = {0x03078CD0u, 0x03079DCCu, 4, 0};
 
 typedef struct ModelScan {
     uint8_t carry[MARKER_CARRY];
     bool carried;
-    bool eight_gb;
-    bool small_model;
+    bool echo;
+    bool mini;
 } ModelScan;
 
 static uint32_t source_chunk[CHUNK_WORDS];
@@ -203,12 +205,13 @@ static bool matches_installed(const UpdateFile *file, const UpdateStorage *stora
 static void find_markers(ModelScan *scan, const uint8_t *bytes, uint32_t length)
 {
     for (uint32_t index = 0; index + MARKER_LENGTH <= length; index++) {
-        if (bytes[index] == EIGHT_GB_MARKER[0] &&
-            has_text(bytes + index, EIGHT_GB_MARKER, MARKER_LENGTH)) {
-            scan->eight_gb = true;
-        } else if (bytes[index] == SMALL_MODEL_MARKER[0] &&
-                   has_text(bytes + index, SMALL_MODEL_MARKER, MARKER_LENGTH)) {
-            scan->small_model = true;
+        if (bytes[index] == ECHO_MARKER[0] && has_text(bytes + index, ECHO_MARKER, MARKER_LENGTH)) {
+            scan->echo = true;
+        } else if ((bytes[index] == MINI_8GB_MARKER[0] &&
+                    has_text(bytes + index, MINI_8GB_MARKER, MARKER_LENGTH)) ||
+                   (bytes[index] == MINI_512MB_MARKER[0] &&
+                    has_text(bytes + index, MINI_512MB_MARKER, MARKER_LENGTH))) {
+            scan->mini = true;
         }
     }
 }
@@ -256,12 +259,12 @@ static UpdateCheck stock_check(const UpdateFile *file, const UpdateStorage *stor
     bool fits = STOCK_FW_END / SECTOR_BYTES <= storage->slot_sectors;
     bool copy_fits = fw_size >= HEADER_BYTES && fw_size % SECTOR_BYTES == 0 &&
                      fw_size <= STOCK_FW_END - HEADER_BYTES;
-    ModelScan scan = {.carried = false, .eight_gb = false, .small_model = false};
+    ModelScan scan = {.carried = false, .echo = false, .mini = false};
     bool valid = fits && copy_fits && has_text(bytes + MAGIC_OFFSET, MAGIC, sizeof MAGIC) &&
                  has_text(bytes + BRAND_OFFSET, STOCK_BRAND, sizeof STOCK_BRAND) &&
                  header_copy_matches(file, header, fw_size) &&
                  crc_is_valid(file, STOCK_FW_END, &scan);
-    return valid && scan.eight_gb && !scan.small_model ? UPDATE_STOCK : UPDATE_INVALID;
+    return valid && scan.echo && !scan.mini ? UPDATE_STOCK : UPDATE_INVALID;
 }
 
 UpdateCheck updater_check(const UpdateFile *file, const UpdateStorage *storage)
