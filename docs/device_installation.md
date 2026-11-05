@@ -20,7 +20,7 @@ If FiiO's updater won't take the file, maskrom can write the image straight into
 2. Enter maskrom (`docs/device-recovery.md`, step 2).
 3. Write slot 2, then slot 1, and read both back:
 
-   ```sh
+   ```powershell
    cd external/rkdeveloptool
    ./rkdeveloptool ld && ./rkdeveloptool td
    ./rkdeveloptool wl 69632 ../../build/device/slot.bin
@@ -36,7 +36,6 @@ If FiiO's updater won't take the file, maskrom can write the image straight into
 1. Connect the player. It shows "Computer found", and two drives appear: internal storage ("ECHO MINI") and the SD card.
 2. Copy the new image to the top level of internal storage and check it:
    - Windows (PowerShell): `Copy-Item build\device\ECHOV400.IMG E:\` then `Get-FileHash E:\ECHOV400.IMG`, with E: the internal drive.
-   - macOS: `cp -X build/device/ECHOV400.IMG "/Volumes/ECHO MINI/"`, then `rm -f "/Volumes/ECHO MINI/._ECHOV400.IMG"` and `shasum -a 256` on both copies.
 3. Eject both drives. The player shows "Checking ECHOV400.IMG", then "Installing update" with a percentage, then "Update installed".
 4. Unplug, hold Power to switch off, then switch on. The new build starts.
 

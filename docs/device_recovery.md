@@ -4,7 +4,7 @@ If the player doesn't start at all, its chip's maskrom mode can still write FiiO
 
 Maskrom writes go straight to internal storage, below the file system. A wrong command can leave the player unable to start until a later write succeeds. Follow the steps exactly, and don't run any command not listed here.
 
-The procedure follows ReChord's Linux debrick guide and the livetrack.club debrick guide. It has been used on an Echo Mini 8 GB from macOS and from Windows 11.
+The procedure follows ReChord's Linux debrick guide and the livetrack.club debrick guide. It has been used on an Echo Mini 8 GB from Windows 11.
 
 ## What you need
 
@@ -37,21 +37,6 @@ make AM_CPPFLAGS='-Wall -Wextra -Wreturn-type -fno-strict-aliasing -D_FILE_OFFSE
 ```
 
 The `make` line drops upstream's `-Werror`, as MSYS2's own package does. The tool prints `rkdeveloptool ver 1.32`, and needs `C:\msys64\clang64\bin` on the PATH when it runs.
-
-### macOS
-
-```sh
-brew install libusb automake autoconf pkgconf
-mkdir -p external && cd external
-git clone https://github.com/rockchip-linux/rkdeveloptool.git
-cd rkdeveloptool
-git checkout 304f073752fd25c854e1bcf05d8e7f925b1f4e14
-python3 ../../tools/patch_rkdeveloptool.py .
-./autogen.sh && ./configure && make CXXFLAGS="-g -O2 -Wno-vla-cxx-extension"
-./rkdeveloptool -v
-```
-
-Apple clang treats two run-time-sized arrays in upstream `main.cpp` as errors, which is why the `CXXFLAGS` are needed. On macOS the procedure was proven with ReChord's patch script, which makes the same three changes.
 
 ## 2. Enter maskrom
 
@@ -98,7 +83,7 @@ Before you write, make sure no `ECHOVnnn.IMG` file is left at the top level of i
 
 - Never run `db`: it fails on this boot ROM and can wedge USB. Never write anything except the whole FiiO image: no `ul`, `ef`, `wlx`, unpacked parts or RKAF tools.
 - If a command fails or hangs (more than about a minute with no progress), the session is wedged. Press Ctrl+C, unplug, press RST, enter maskrom again and start over from `ld`.
-- If `wl` fails twice the same way, try another USB port, cable or computer. ReChord's recoveries were done from Linux, which is the fallback.
+- If `wl` fails twice the same way, try another USB port, cable or computer.
 - A failed `wl` can leave the player unable to start until a later `wl` succeeds.
 
 ## If it goes wrong
@@ -108,5 +93,5 @@ Before you write, make sure no `ECHOVnnn.IMG` file is left at the top level of i
 | Nothing with `2207:262d` appears | Repeat step 2. Use a data cable and a port directly on the computer. |
 | `ld` says `Loader`, not `Maskrom` | The patch didn't apply. Rebuild the tool. |
 | `ld` lists nothing on Windows | Bind the device to WinUSB with Zadig (step 2). |
-| `td` hangs or times out | Unplug, press RST, and start again. On Linux, disable USB autosuspend first. |
+| `td` hangs or times out | Unplug, press RST, and start again. |
 | The player won't start after `rd` | Press RST, wait 10 s, then press Power. |

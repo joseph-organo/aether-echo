@@ -2,9 +2,16 @@
 
 Status: `device` (works on the player) · `sim` (works in the simulator only) · `in progress` · `todo`
 
-## Where it stands
+## Current Status (v0.1.0-alpha)
+- **v0.1.0-alpha Release:** Initial hardware bring-up and flashing achieved.
+- **Active Testing:** Initial hardware playback testing underway; investigating USB DAC audio cracking and stereo channel inversion.
 
-EchoPod features robust support for Chinese, Japanese, and Korean text, M3U and M3U8 playlists, gapless playback, a 7-band equalizer, Bluetooth, USB DAC mode, large-card library management, and synchronized lyrics parser with a two-line Now Playing view and memory optimizations. The simulator setup targets the 480×222 Echo screen layout with centered Cover Flow, and active development is focused on porting and validating these features directly onto the Echo hardware stack. `docs/known-issues.md` lists what's missing or unproven.
+## Next (Echo Hardware Porting & Bug Fixes)
+| Item | Status |
+|---|---|
+| Investigate and resolve USB DAC audio cracking / notification buffer glitch | in progress |
+| Diagnose and correct left/right stereo channel swap in the audio pipeline | in progress |
+| Full hardware stability and audio validation | todo |
 
 ## Features
 
@@ -34,17 +41,6 @@ EchoPod features robust support for Chinese, Japanese, and Korean text, M3U and 
 | Updates and the way back | device | EchoPod installs its own updates and stock firmware via file copy |
 | Configurable start screen | sim / device | Settings → Start screen |
 
-## Next (Echo Hardware Porting)
-
-| Item | Status |
-|---|---|
-| Recovery check (maskrom mode, rkdeveloptool, Zadig driver binding, read-only ld/td and flash backup) | in progress |
-| Echo hardware layer integration (screen driver/init, pin table, backlight, jack polarity, DAC setup, storage layout, ECHOVnnn filenames, memory map) | in progress |
-| Unverified Echo values check (DAC settings, backlight, jack values vs. stock firmware; testing Filter and Balance settings) | todo |
-| Memory and size re-measurement (handling ~11 KB buffer increase for wider screen and tight code area limits via overlays/trimming) | todo |
-| First flash and device testing (direct maskrom write, subsequent updates via player updater, testing lyrics and large libraries on device) | todo |
-| Visual UI redesign & screen verification (checking all screens at 480×222, applying user look preference like retro cassette/minimal dark/high contrast, portrait lyrics, and toggle) | todo |
-
 ## Roadmap Features
 
 | Item | Status |
@@ -61,7 +57,6 @@ EchoPod features robust support for Chinese, Japanese, and Korean text, M3U and 
 
 ## Later / Skipped on Purpose
 
-- Echo-sync on Mac and Linux
 - Installing from a Mac
 - Testing on more players
 - pid.codes USB ID assignment (retaining shared test ID for now)
