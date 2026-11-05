@@ -4,9 +4,9 @@ Replacement firmware for the Snowsky (FiiO) Echo (NOT MINI) music player. It has
 
 This is an adaptation of the original EchoPod made by BasilSkyWalk, tailored for the FiiO Snowsky Echo (NOT MINI) music player with numerous optimizations and porting updates.
 
-- **Installing and using it:** `docs/user-guide.md`.
-- **Read first:** `docs/known-issues.md`. EchoPod is early, and hardware testing is expanding.
-- **What's new:** `docs/release-notes.md`.
+- **Installing and using it:** `docs/user_guide.md`.
+- **Read first:** `docs/known_issues.md`. EchoPod is early, and hardware testing is expanding.
+- **What's new:** `docs/release_notes.md`.
 
 The hardware knowledge it relies on comes largely from the [ReChord](https://github.com/brnomt/ReChord) project's research (`docs/hardware.md`, `CREDITS.md`).
 
@@ -42,7 +42,7 @@ cmake --preset release
 cmake --build --preset release
 ```
 
-This writes `build/release/ECHOV400.IMG`. The `device` preset builds the same image with the developer Diagnostics rows. `docs/device-install.md` covers installing builds during development.
+This writes `build/release/ECHOV400.IMG`. The `device` preset builds the same image with the developer Diagnostics rows. `docs/device_install.md` covers installing builds during development.
 
 ## Use your music library in the simulator
 
