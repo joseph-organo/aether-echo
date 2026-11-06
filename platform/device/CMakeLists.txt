@@ -194,7 +194,7 @@ target_link_options(echo_rescan_overlay PRIVATE
 
 set(ECHO_FIRMWARE_VERSION "0.9.1" CACHE STRING "major.minor.patch written to the image header")
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
-set(ECHO_DEVICE_IMAGE ${CMAKE_BINARY_DIR}/ECHOV400.IMG)
+set(ECHO_DEVICE_IMAGE ${CMAKE_BINARY_DIR}/ECHOV${ECHO_IMAGE_NUMBER}.IMG)
 set(ECHO_GLYPH_FACE_ARGUMENTS "")
 foreach(face_file ${ECHO_GLYPH_FACE_FILES} ${ECHO_LANGUAGE_PACK_FILES})
     list(APPEND ECHO_GLYPH_FACE_ARGUMENTS --glyph-face ${face_file})

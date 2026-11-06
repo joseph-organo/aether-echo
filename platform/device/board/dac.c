@@ -608,7 +608,15 @@ bool dac_path_take_underrun(void)
 
 void dac_path_start_transfer(void)
 {
+    register_write(I2S_XFER, 0);
+    register_write(I2S_CLR, 1);
+    uint32_t start = hal_clock_milliseconds();
+    while (register_read(I2S_CLR) != 0 && hal_clock_milliseconds() - start < I2C_TIMEOUT_MS) {
+    }
     register_write(I2S_DMACR, I2S_DMA_TX);
+    start = hal_clock_milliseconds();
+    while (!fifo_full() && hal_clock_milliseconds() - start < FIFO_TIMEOUT_MS) {
+    }
     register_write(I2S_XFER, 1);
 }
 
