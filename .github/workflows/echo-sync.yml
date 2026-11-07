@@ -51,10 +51,10 @@ jobs:
           tools/echo_sync.py
       - name: Smoke test
         run: |
-          ${{ matrix.built }} --help
+          ./${{ matrix.built }} --help
           mkdir -p smoke/.echo smoke/Artist/Album
           python -c "import sys; sys.path[:0] = ['tools', 'tools/tests']; from pathlib import Path; from test_library_index import write_silent_flac; write_silent_flac(Path('smoke/Artist/Album/01 - Song.flac'), 1)"
-          ${{ matrix.built }} smoke --dry-run
+          ./${{ matrix.built }} smoke --dry-run
       - name: Name the file for its platform
         run: mv "${{ matrix.built }}" "dist/${{ matrix.asset }}"
       - uses: actions/upload-artifact@v4
