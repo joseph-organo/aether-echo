@@ -190,7 +190,7 @@ static void build_home(AppScreens *screens, AppScreensContext context)
     screens->home_items[5].shown = player_has_track;
     screens->home_items[5].shown_context = context.player;
     home_art_init(&screens->home_art, context.covers, context.store, context.player, theme);
-    MenuConfig home = {.title = "EchoPod",
+    MenuConfig home = {.title = "AETHER",
                        .items = screens->home_items,
                        .item_count = HOME_ITEM_COUNT,
                        .theme = theme,

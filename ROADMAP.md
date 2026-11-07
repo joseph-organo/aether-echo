@@ -1,4 +1,4 @@
-# EchoPod roadmap
+# AETHER roadmap
 
 Status: `device` (works on the player) · `sim` (works in the simulator only) · `in progress` · `todo`
 
@@ -38,7 +38,7 @@ Status: `device` (works on the player) · `sim` (works in the simulator only) ·
 | Bluetooth headphones | device | Pair, remember up to six, auto-reconnect, switch and disconnect; headphone controls |
 | USB mass storage | device | Internal storage and high-speed SD card read/write |
 | USB DAC mode | device | USB Audio Class 1.0 sound card support |
-| Updates and the way back | device | EchoPod installs its own updates and stock firmware via file copy |
+| Updates and the way back | device | AETHER installs its own updates and stock firmware via file copy |
 | Configurable start screen | sim / device | Settings → Start screen |
 
 ## Roadmap Features

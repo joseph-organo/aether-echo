@@ -414,7 +414,7 @@ def ask_for_card(cards, read=input):
         answer = typed_path(read(f"Card to sync [{cards[0]}]: "))
         return answer or str(cards[0])
     if cards:
-        print("Cards that have been in an EchoPod player: " +
+        print("Cards that have been in an AETHER player: " +
               ", ".join(str(card) for card in cards))
     answer = typed_path(read("Card drive or folder (for example E: or /Volumes/CARD; you can "
                              "drag it here): "))
@@ -651,7 +651,7 @@ def options_from(arguments):
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser(
-        description="Build the EchoPod library and album covers for a memory card on this "
+        description="Build the AETHER library and album covers for a memory card on this "
                     "computer, so the player doesn't have to scan it.")
     parser.add_argument("card", nargs="?",
                         help="the card's drive or mount point, for example E:\\ or "
@@ -715,7 +715,7 @@ def run(arguments):
             return run_check(card, volume)
         require_dependencies()
         options = options_from(arguments)
-        print(f"EchoPod sync: {card} ({volume.file_system})")
+        print(f"AETHER sync: {card} ({volume.file_system})")
         ensure_echo_folder(echo, options, arguments.yes)
         recorded = sync(card, volume, options)
     except SyncError as error:

@@ -105,9 +105,9 @@ class CrcTest(unittest.TestCase):
 
 
 class BrandTest(unittest.TestCase):
-    def test_the_default_brand_is_echopod(self):
+    def test_the_default_brand_is_aether(self):
         arguments = make_image.parse_arguments(["--elf", "a.elf", "--output", "b.img"])
-        self.assertEqual("EchoPod", arguments.brand)
+        self.assertEqual("AETHER", arguments.brand)
 
 
 class FwEndTest(unittest.TestCase):

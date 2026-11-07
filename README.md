@@ -1,11 +1,11 @@
-# EchoPod
+# AETHER
 
 Replacement firmware for the Snowsky (FiiO) Echo (NOT MINI) music player. It has an iPod-style Cover Flow browser, a music library built on the player, album favorites, M3U & M3U8 playlists, an Up Next queue, and synchronized lyrics support. It isn't made or supported by FiiO.
 
-This is an adaptation of the original EchoPod made by BasilSkyWalk, tailored for the FiiO Snowsky Echo (NOT MINI) music player with numerous optimizations and porting updates.
+AETHER is a fork of EchoPod by BasilSkyWalk, tailored for the FiiO Snowsky Echo (NOT MINI) music player with numerous optimizations and porting updates.
 
 - **Installing and using it:** `docs/user_guide.md`.
-- **Read first:** `docs/known_issues.md`. EchoPod is early, and hardware testing is expanding.
+- **Read first:** `docs/known_issues.md`. AETHER is early, and hardware testing is expanding.
 - **What's new:** `docs/release_notes.md`.
 
 The hardware knowledge it relies on comes largely from the [ReChord](https://github.com/brnomt/ReChord) project's research (`docs/hardware.md`, `CREDITS.md`).
