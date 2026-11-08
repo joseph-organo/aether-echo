@@ -24,8 +24,8 @@ enum {
     MUSIC_COVER_FLOW_ENTRY = 0,
     MUSIC_ARTISTS_ENTRY = 1,
     MUSIC_ALBUMS_ENTRY = 3,
-    MUSIC_PLAYLISTS_ENTRY = 7,
-    MUSIC_FAVORITES_ENTRY = 8
+    MUSIC_PLAYLISTS_ENTRY = 6,
+    MUSIC_FAVORITES_ENTRY = 7
 };
 
 static const MusicEntry MUSIC_ENTRIES[MUSIC_ITEM_COUNT] = {
@@ -34,7 +34,6 @@ static const MusicEntry MUSIC_ENTRIES[MUSIC_ITEM_COUNT] = {
     {STR_MENU_ALBUM_ARTISTS, MUSIC_LIBRARY, BROWSE_ALBUM_ARTISTS},
     {STR_MENU_ALBUMS, MUSIC_LIBRARY, BROWSE_ALBUMS},
     {STR_MENU_GENRES, MUSIC_LIBRARY, BROWSE_GENRES},
-    {STR_MENU_FOLDERS, MUSIC_LIBRARY, BROWSE_FOLDER},
     {STR_MENU_ALL_SONGS, MUSIC_LIBRARY, BROWSE_ALL_SONGS},
     {STR_MENU_PLAYLISTS, MUSIC_LIBRARY, BROWSE_PLAYLISTS},
     {STR_MENU_FAVORITES, MUSIC_FAVORITES, BROWSE_ALBUMS},
@@ -103,6 +102,23 @@ static MenuItem music_item(AppScreens *screens, const LibraryStore *store, int i
                       .opens = true};
 }
 
+static MenuItem folders_item(AppScreens *screens, const LibraryStore *store)
+{
+    screens->folders_entry = (BrowseEntry){
+        .pool = &screens->browse,
+        .store = store,
+        .unavailable = &screens->no_library.screen,
+        .query = browse_root_query(BROWSE_FOLDER),
+        .shelf = SPOKEN_NONE,
+        .present = true,
+    };
+    return (MenuItem){.label = i18n_text(STR_MENU_FOLDERS),
+                      .select = open_browse,
+                      .context = &screens->folders_entry,
+                      .value = NULL,
+                      .opens = true};
+}
+
 static void build_music(AppScreens *screens, AppScreensContext context)
 {
     BrowsePoolConfig browse = {
@@ -142,6 +158,7 @@ static void build_settings(AppScreens *screens, AppScreensContext context)
         .rescan_requested = context.rescan_requested,
         .bluetooth = &screens->bluetooth,
         .equalizer = &screens->equalizer,
+        .diagnostics = &screens->diagnostics.screen,
         .sleep_option = 0,
     };
     settings_screens_init(&screens->settings, settings, context.theme);
@@ -182,13 +199,12 @@ static void build_home(AppScreens *screens, AppScreensContext context)
     screens->home_items[1] = shelf_item(screens, context, SPOKEN_AUDIOBOOK);
     screens->home_items[2] = shelf_item(screens, context, SPOKEN_PODCAST);
     screens->home_items[3] =
-        app_screens_open_item(i18n_text(STR_MENU_SETTINGS), &screens->settings.menu.screen);
-    screens->home_items[4] =
-        app_screens_open_item(i18n_text(STR_DIAG_TITLE), &screens->diagnostics.screen);
-    screens->home_items[5] =
         app_screens_open_item(i18n_text(STR_MENU_NOW_PLAYING), &screens->now_playing.screen);
-    screens->home_items[5].shown = player_has_track;
-    screens->home_items[5].shown_context = context.player;
+    screens->home_items[3].shown = player_has_track;
+    screens->home_items[3].shown_context = context.player;
+    screens->home_items[4] = folders_item(screens, context.store);
+    screens->home_items[5] =
+        app_screens_open_item(i18n_text(STR_MENU_SETTINGS), &screens->settings.menu.screen);
     home_art_init(&screens->home_art, context.covers, context.store, context.player, theme);
     MenuConfig home = {.title = "AETHER",
                        .items = screens->home_items,

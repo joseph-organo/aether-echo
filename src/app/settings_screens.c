@@ -357,6 +357,10 @@ Screen *settings_screens_init(SettingsScreens *screens, SettingsContext context,
                                                          .context = context.equalizer,
                                                          .value = equalizer_screen_summary,
                                                          .opens = true};
+    screens->items[SETTINGS_DIAGNOSTICS_ITEM] = (MenuItem){.label = i18n_text(STR_DIAG_TITLE),
+                                                           .select = menu_open_screen,
+                                                           .context = context.diagnostics,
+                                                           .opens = true};
     for (int index = 0; index < SETTINGS_CHOICE_COUNT; index++) {
         screens->entries[index] = (SettingsEntry){.choice = &CHOICES[index], .owner = screens};
         int item = index < SETTINGS_BLUETOOTH_ITEM ? index : index + 1;

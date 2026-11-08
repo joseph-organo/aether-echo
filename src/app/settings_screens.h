@@ -18,7 +18,8 @@ enum {
     SETTINGS_BLUETOOTH_ITEM = 2,
     SETTINGS_EQUALIZER_ITEM = 3,
     SETTINGS_RESCAN_ITEM = 14,
-    SETTINGS_ITEM_COUNT = SETTINGS_CHOICE_COUNT + 3
+    SETTINGS_DIAGNOSTICS_ITEM = SETTINGS_CHOICE_COUNT + 3,
+    SETTINGS_ITEM_COUNT = SETTINGS_CHOICE_COUNT + 4
 };
 
 typedef struct SettingsContext {
@@ -29,6 +30,7 @@ typedef struct SettingsContext {
     bool *rescan_requested;
     BluetoothScreen *bluetooth;
     EqualizerScreen *equalizer;
+    Screen *diagnostics;
     int sleep_option;
 } SettingsContext;
 

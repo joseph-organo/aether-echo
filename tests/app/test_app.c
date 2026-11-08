@@ -24,15 +24,15 @@ enum {
     START_MS = 1000,
     KEY_HOLD_MS = 30,
     FULL_FRAME_PIXELS = HAL_DISPLAY_WIDTH * HAL_DISPLAY_HEIGHT,
-    HOME_DIAGNOSTICS_INDEX = 2,
+    SETTINGS_DIAGNOSTICS_INDEX = 17,
+    HOME_FOLDERS_INDEX = 1,
     DIAGNOSTICS_FRAME_TIME_INDEX = 1,
     DIAGNOSTICS_FIRMWARE_INDEX = 2,
     MUSIC_ARTISTS_INDEX = 1,
     MUSIC_ALBUMS_INDEX = 3,
-    MUSIC_FOLDERS_INDEX = 5,
     BJORK_POSITION = 3,
-    HOME_SETTINGS_INDEX = 1,
-    HOME_NOW_PLAYING_INDEX = 3,
+    HOME_SETTINGS_INDEX = 2,
+    HOME_NOW_PLAYING_INDEX = 1,
     SETTINGS_REPEAT_INDEX = 1,
     SETTINGS_EQUALIZER_INDEX = 3,
     SETTINGS_SLEEP_INDEX = 4,
@@ -44,13 +44,13 @@ enum {
     SETTINGS_RESCAN_INDEX = 14,
     SETTINGS_LANGUAGE_INDEX = 16,
     MUSIC_COVER_FLOW_INDEX = 0,
-    MUSIC_PLAYLISTS_INDEX = 7,
+    MUSIC_PLAYLISTS_INDEX = 6,
     COVER_CENTER_X = 160,
     COVER_CENTER_Y = 60,
     SETTLE_STEPS = 30,
     RED_COVER = 0xF800,
     BLUE_COVER = 0x001F,
-    MUSIC_FAVORITES_INDEX = 8,
+    MUSIC_FAVORITES_INDEX = 7,
     DEFAULT_TIMEOUT_MS = 30000,
     SHORT_TIMEOUT_MS = 10000,
     IDLE_MS = 20000,
@@ -235,7 +235,9 @@ static void the_frame_overlay_is_off_until_enabled_in_diagnostics(void)
     start_app();
     step();
     CHECK(!overlay_visible());
-    move_down(HOME_DIAGNOSTICS_INDEX);
+    move_down(HOME_SETTINGS_INDEX);
+    tap(KEY_PLAY);
+    move_down(SETTINGS_DIAGNOSTICS_INDEX);
     tap(KEY_PLAY);
     CHECK(title_is("Diagnostics"));
     move_down(DIAGNOSTICS_FRAME_TIME_INDEX);
@@ -370,7 +372,8 @@ static void back_returns_to_the_previous_list(void)
 static void folders_can_be_browsed_down_to_an_album(void)
 {
     start_app_with_library();
-    open_music_entry(MUSIC_FOLDERS_INDEX);
+    move_down(HOME_FOLDERS_INDEX);
+    tap(KEY_PLAY);
     CHECK(title_is("Folders"));
     tap(KEY_PLAY);
     CHECK(title_is("AC DC"));
@@ -476,7 +479,7 @@ static void home_art_keeps_the_playing_album(void)
     CHECK_EQUAL(RED_COVER, home_art_probe());
 }
 
-static void the_home_menu_shows_now_playing_last_once_a_track_is_loaded(void)
+static void the_home_menu_shows_now_playing_after_music_once_a_track_is_loaded(void)
 {
     start_app_with_library();
     play_first_album_track();
@@ -724,6 +727,7 @@ static void going_back_slides_the_screen_out_to_the_right(void)
 {
     start_app();
     step();
+    move_down(HOME_SETTINGS_INDEX);
     tap(KEY_PLAY);
     wait_ms(SLIDE_DURATION_MS);
     tap(KEY_BACK);
@@ -1770,7 +1774,9 @@ static void the_key_test_stays_open_after_waking(void)
     start_app_with_library();
     play_first_album_track();
     hold_back();
-    move_down(HOME_DIAGNOSTICS_INDEX);
+    move_down(HOME_SETTINGS_INDEX + 1);
+    tap(KEY_PLAY);
+    move_down(SETTINGS_DIAGNOSTICS_INDEX);
     tap(KEY_PLAY);
     move_down(DIAGNOSTICS_KEY_TEST_INDEX);
     tap(KEY_PLAY);
@@ -1805,7 +1811,9 @@ static void waking_while_paused_keeps_the_screen(void)
 
 static void open_diagnostics_row(int index)
 {
-    move_down(HOME_DIAGNOSTICS_INDEX);
+    move_down(HOME_SETTINGS_INDEX);
+    tap(KEY_PLAY);
+    move_down(SETTINGS_DIAGNOSTICS_INDEX);
     tap(KEY_PLAY);
     move_down(index);
 }
@@ -1933,7 +1941,7 @@ int main(void)
         TEST_CASE(now_playing_without_a_cover_keeps_the_text_layout),
         TEST_CASE(now_playing_keys_control_the_player),
         TEST_CASE(lists_still_move_as_soon_as_a_volume_key_goes_down),
-        TEST_CASE(the_home_menu_shows_now_playing_last_once_a_track_is_loaded),
+        TEST_CASE(the_home_menu_shows_now_playing_after_music_once_a_track_is_loaded),
         TEST_CASE(the_home_menu_hides_now_playing_with_nothing_loaded),
         TEST_CASE(home_art_shows_a_library_cover_when_idle),
         TEST_CASE(home_art_moves_on_and_skips_albums_without_a_cover),
