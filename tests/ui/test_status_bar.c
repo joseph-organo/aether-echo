@@ -55,6 +55,21 @@ static void a_playing_player_shows_the_play_icon_at_the_left(void)
     CHECK(ui_test_area_has_color(&canvas, middle, theme.colors.header_text));
 }
 
+static void repeat_and_shuffle_show_beside_the_play_icon_only_when_on(void)
+{
+    Theme theme = status_theme();
+    Rect icon = status_bar_playback_area(&theme);
+    Rect beside = {icon.x + icon.width + 1, 0, 12, STATUS_HEADER_HEIGHT - 1};
+    Canvas quiet = draw_status(&theme, (StatusBarState){.playback = STATUS_PLAYBACK_PLAYING});
+    CHECK(ui_test_area_has_only(&quiet, beside, theme.colors.header_background));
+    Canvas repeating = draw_status(&theme, (StatusBarState){.playback = STATUS_PLAYBACK_PLAYING,
+                                                           .repeat = STATUS_REPEAT_ALL});
+    CHECK(ui_test_area_has_color(&repeating, beside, theme.colors.header_text));
+    Canvas shuffling = draw_status(&theme, (StatusBarState){.playback = STATUS_PLAYBACK_PLAYING,
+                                                           .shuffle = STATUS_SHUFFLE_ALBUMS});
+    CHECK(ui_test_area_has_color(&shuffling, beside, theme.colors.header_text));
+}
+
 static void a_paused_player_shows_two_bars(void)
 {
     Theme theme = status_theme();
@@ -173,6 +188,7 @@ int main(void)
         TEST_CASE(an_unknown_battery_shows_no_percentage),
         TEST_CASE(an_idle_player_without_a_battery_reading_draws_nothing),
         TEST_CASE(a_playing_player_shows_the_play_icon_at_the_left),
+        TEST_CASE(repeat_and_shuffle_show_beside_the_play_icon_only_when_on),
         TEST_CASE(a_paused_player_shows_two_bars),
         TEST_CASE(the_battery_sits_inside_the_right_inset),
         TEST_CASE(the_fill_follows_the_charge),

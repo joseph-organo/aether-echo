@@ -8,27 +8,27 @@ static void the_header_is_filled_with_its_background(void)
     Canvas canvas = ui_test_canvas();
     header_draw(&canvas, &TEST_THEME, "");
     Rect header = theme_header_area(&TEST_THEME);
-    Rect body = {header.x, header.y, header.width, header.height - 1};
+    Rect body = {header.x, header.y, header.width, header.height};
     CHECK(ui_test_area_has_only(&canvas, body, TEST_THEME.colors.header_background));
 }
 
-static void the_header_shades_from_its_top_color_down(void)
+static void the_header_is_one_flat_color(void)
 {
     Theme theme = TEST_THEME;
     theme.colors.header_top = 0xFFFF;
     Canvas canvas = ui_test_canvas();
     header_draw(&canvas, &theme, "");
-    CHECK_EQUAL(0xFFFF, canvas_pixel_at(&canvas, 0, 0));
+    CHECK_EQUAL(theme.colors.header_background, canvas_pixel_at(&canvas, 0, 0));
     CHECK_EQUAL(theme.colors.header_background,
-                canvas_pixel_at(&canvas, 0, TEST_HEADER_HEIGHT - 2));
+                canvas_pixel_at(&canvas, 0, TEST_HEADER_HEIGHT - 1));
 }
 
-static void a_divider_separates_the_header_from_the_content(void)
+static void the_header_has_no_divider_line(void)
 {
     Canvas canvas = ui_test_canvas();
     header_draw(&canvas, &TEST_THEME, "");
-    Rect divider = {0, TEST_HEADER_HEIGHT - 1, TEST_SCREEN_WIDTH, 1};
-    CHECK(ui_test_area_has_only(&canvas, divider, TEST_THEME.colors.divider));
+    Rect last_row = {0, TEST_HEADER_HEIGHT - 1, TEST_SCREEN_WIDTH, 1};
+    CHECK(ui_test_area_has_only(&canvas, last_row, TEST_THEME.colors.header_background));
 }
 
 static void the_title_is_centred(void)
@@ -55,8 +55,8 @@ int main(void)
 {
     static const TestCase cases[] = {
         TEST_CASE(the_header_is_filled_with_its_background),
-        TEST_CASE(the_header_shades_from_its_top_color_down),
-        TEST_CASE(a_divider_separates_the_header_from_the_content),
+        TEST_CASE(the_header_is_one_flat_color),
+        TEST_CASE(the_header_has_no_divider_line),
         TEST_CASE(the_title_is_centred),
         TEST_CASE(a_long_title_stays_clear_of_the_header_insets),
     };

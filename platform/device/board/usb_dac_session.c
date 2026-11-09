@@ -10,7 +10,9 @@
 #include "device/usb_audio_sink.h"
 #include "hal/audio.h"
 #include "hal/clock.h"
+#include "hal/display.h"
 #include "hal/input.h"
+#include "hal/system.h"
 #include "settings/settings.h"
 #include "usb.h"
 
@@ -43,11 +45,19 @@ static bool dac_volume_known;
 static bool holding_volume;
 static int held_step;
 static uint32_t next_repeat_ms;
+static uint32_t screen_timeout_ms;
+static uint32_t last_key_ms;
+static bool screen_off;
 
 void hal_system_set_dac_volume(uint8_t level)
 {
     dac_volume = level;
     dac_volume_known = true;
+}
+
+void hal_system_set_screen_timeout_ms(uint32_t milliseconds)
+{
+    screen_timeout_ms = milliseconds;
 }
 
 static void receive_stream(const uint8_t *bytes, uint32_t length)
@@ -206,10 +216,29 @@ static bool back_released_after_hold(HalKeyTransition key)
     return key.time_ms - back_pressed_ms >= BACK_HOLD_MS;
 }
 
+static void wake_screen(void)
+{
+    if (screen_off) {
+        screen_off = false;
+        hal_display_set_power(true);
+    }
+}
+
+static void sleep_screen_when_idle(void)
+{
+    if (!screen_off && screen_timeout_ms != 0 &&
+        hal_clock_milliseconds() - last_key_ms >= screen_timeout_ms) {
+        screen_off = true;
+        hal_display_set_power(false);
+    }
+}
+
 static bool user_left(void)
 {
     HalKeyTransition key;
     while (hal_input_next_transition(&key)) {
+        last_key_ms = hal_clock_milliseconds();
+        wake_screen();
         if (key.key == KEY_BACK && back_released_after_hold(key)) {
             return true;
         }
@@ -223,7 +252,10 @@ static bool user_left(void)
 static void serve(void)
 {
     back_pressed_ms = hal_clock_milliseconds();
+    last_key_ms = back_pressed_ms;
+    screen_off = false;
     while (usb_vbus_present() && !user_left()) {
+        sleep_screen_when_idle();
         serve_usb();
         hal_audio_service();
         board_display_service();
@@ -231,6 +263,7 @@ static void serve(void)
         keep_output();
         repeat_volume();
     }
+    wake_screen();
 }
 
 static void start_session(void)

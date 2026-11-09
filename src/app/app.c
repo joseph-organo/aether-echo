@@ -619,9 +619,12 @@ static StatusBluetooth bluetooth_of(const BluetoothLink *link)
 static StatusBarState current_status_bar(void)
 {
     HalBattery battery = hal_power_battery();
+    PlayerStatus status = player_status(&app.player);
     return (StatusBarState){
-        .playback = playback_of(player_status(&app.player).state),
+        .playback = playback_of(status.state),
         .bluetooth = bluetooth_of(&app.bluetooth),
+        .repeat = (StatusRepeat)status.repeat,
+        .shuffle = (StatusShuffle)status.shuffle,
         .battery_known = battery.known,
         .battery_percent = battery.percent,
         .charging = battery.charging,

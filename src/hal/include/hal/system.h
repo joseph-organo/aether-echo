@@ -59,6 +59,7 @@ typedef enum HalUsbMode {
 
 void hal_system_set_usb_mode(HalUsbMode mode);
 void hal_system_set_dac_volume(uint8_t level);
+void hal_system_set_screen_timeout_ms(uint32_t milliseconds);
 
 typedef struct HalLoopCycles {
     uint32_t register_centi;

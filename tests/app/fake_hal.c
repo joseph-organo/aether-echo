@@ -123,6 +123,7 @@ typedef struct FakeHal {
     int bluetooth_disconnect_count;
     HalUsbMode usb_mode;
     uint8_t dac_volume;
+    uint32_t screen_timeout_ms;
 } FakeHal;
 
 static FakeHal fake;
@@ -593,6 +594,16 @@ int fake_hal_usb_mode(void)
 void hal_system_set_dac_volume(uint8_t level)
 {
     fake.dac_volume = level;
+}
+
+void hal_system_set_screen_timeout_ms(uint32_t milliseconds)
+{
+    fake.screen_timeout_ms = milliseconds;
+}
+
+uint32_t fake_hal_screen_timeout_ms(void)
+{
+    return fake.screen_timeout_ms;
 }
 
 int fake_hal_dac_volume(void)

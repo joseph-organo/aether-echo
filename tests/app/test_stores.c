@@ -104,6 +104,7 @@ static void hardware_settings_reach_the_hal(void)
     CHECK_EQUAL(HAL_AUDIO_OUTPUT_BALANCED, fake_hal_audio_output());
     CHECK_EQUAL(HAL_USB_MODE_DAC, fake_hal_usb_mode());
     CHECK_EQUAL(SETTINGS_DEFAULT_DAC_VOLUME, fake_hal_dac_volume());
+    CHECK_EQUAL(settings_screen_timeout_ms(&chosen), fake_hal_screen_timeout_ms());
 }
 
 static void toggling_an_album_adds_it_and_saves(void)

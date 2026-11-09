@@ -18,15 +18,11 @@ enum {
     TITLE_TOP = 126,
     ARTIST_TOP = 148,
     LINE_HEIGHT = 20,
-    REFLECTION_ROWS = 34,
-    REFLECTION_LIGHT = 80,
-    FLOOR_LEVEL = 16,
     RANDOM_POSITION = 0,
     SHUFFLE_SIZE = 48,
     SHUFFLE_STROKE = 4,
     STACK_TITLE_TOP = 272,
-    STACK_ARTIST_TOP = 294,
-    STACK_FLOOR_TOP = 266
+    STACK_ARTIST_TOP = 294
 };
 
 static const CoverStackLayout STACK = {
@@ -415,15 +411,7 @@ static void draw_cover(const CoverFlowScreen *flow, Canvas *canvas, int position
     if (cover_image(flow, position, &image)) {
         uint32_t started_us = hal_clock_microseconds();
         image_draw_quad_lit(canvas, image, quad, light);
-        uint32_t reflection_us = hal_clock_microseconds();
-        draw_profile_add(DRAW_PART_COVERS, reflection_us - started_us);
-        if (stacked) {
-            return;
-        }
-        QuadLight reflected = {(uint16_t)(light.left * REFLECTION_LIGHT / COLOR_LIGHT_FULL),
-                               (uint16_t)(light.right * REFLECTION_LIGHT / COLOR_LIGHT_FULL)};
-        image_draw_reflection(canvas, image, quad, reflected, REFLECTION_ROWS);
-        draw_profile_add(DRAW_PART_REFLECTIONS, hal_clock_microseconds() - reflection_us);
+        draw_profile_add(DRAW_PART_COVERS, hal_clock_microseconds() - started_us);
     } else {
         image_fill_quad(canvas, quad, flow->config.theme->colors.divider);
     }
@@ -469,16 +457,8 @@ static void draw_empty(const Theme *theme, Canvas *canvas)
 
 static void draw_backdrop(const Theme *theme, Canvas *canvas)
 {
-    int floor = theme_is_portrait(theme)
-                    ? STACK_FLOOR_TOP
-                    : layout_for(theme).center_top + LAYOUT.center_size;
-    int height = theme->metrics.screen_height;
-    canvas_fill_rect(canvas, (Rect){0, 0, theme->metrics.screen_width, floor}, BACKDROP);
-    for (int y = floor; y < height; y++) {
-        uint8_t level = (uint8_t)(FLOOR_LEVEL * (height - y) / (height - floor));
-        canvas_fill_rect(canvas, (Rect){0, y, theme->metrics.screen_width, 1},
-                         color_from_rgb(level, level, level));
-    }
+    canvas_fill_rect(canvas, (Rect){0, 0, theme->metrics.screen_width, theme->metrics.screen_height},
+                     BACKDROP);
 }
 
 static void draw(void *context, Canvas *canvas)

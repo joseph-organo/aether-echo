@@ -136,6 +136,7 @@ static void choose_timeout(void *context, int index)
     SettingsContext *settings = context;
     editable_settings(context)->screen_timeout = (uint8_t)index;
     power_policy_set_timeout(settings->power, settings_screen_timeout_ms(settings_of(context)));
+    hal_system_set_screen_timeout_ms(settings_screen_timeout_ms(settings_of(context)));
     save(settings);
 }
 

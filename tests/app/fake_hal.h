@@ -87,4 +87,5 @@ EqualizerCurve fake_hal_equalizer(void);
 int fake_hal_equalizer_changes(void);
 int fake_hal_usb_mode(void);
 int fake_hal_dac_volume(void);
+uint32_t fake_hal_screen_timeout_ms(void);
 const uint8_t *fake_hal_file_bytes(const char *path, uint32_t *size);

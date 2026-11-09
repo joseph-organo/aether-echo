@@ -39,6 +39,11 @@ void hal_system_set_dac_volume(uint8_t level)
     (void)level;
 }
 
+void hal_system_set_screen_timeout_ms(uint32_t milliseconds)
+{
+    (void)milliseconds;
+}
+
 void hal_system_set_usb_mode(HalUsbMode mode)
 {
     (void)mode;

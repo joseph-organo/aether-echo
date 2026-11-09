@@ -180,7 +180,7 @@ static void the_selected_row_is_highlighted(void)
     CHECK(ui_test_area_has_only(&canvas, row_rect(2), TEST_THEME.colors.background));
 }
 
-static void the_selected_row_has_a_shine_line_and_shades_down(void)
+static void the_selected_row_is_one_flat_color(void)
 {
     Theme theme = TEST_THEME;
     theme.colors.selection_top = 0xFFFF;
@@ -191,11 +191,11 @@ static void the_selected_row_has_a_shine_line_and_shades_down(void)
     Canvas canvas = ui_test_canvas();
     list_view_draw(&view, &canvas, theme_content_area(&theme), 100);
     Rect row = row_rect(1);
-    CHECK_EQUAL(0x07E0, canvas_pixel_at(&canvas, 0, row.y));
+    CHECK_EQUAL(theme.colors.selection_background, canvas_pixel_at(&canvas, 0, row.y));
+    CHECK_EQUAL(theme.colors.selection_background,
+                canvas_pixel_at(&canvas, 0, row.y + 1));
     CHECK_EQUAL(theme.colors.selection_background,
                 canvas_pixel_at(&canvas, 0, row.y + row.height - 1));
-    Color below_shine = canvas_pixel_at(&canvas, 0, row.y + 1);
-    CHECK(below_shine != 0x07E0 && below_shine != theme.colors.selection_background);
 }
 
 static void the_scrollbar_thumb_sits_inset_without_a_track(void)
@@ -278,7 +278,7 @@ int main(void)
         TEST_CASE(selecting_past_the_end_picks_the_last_item),
         TEST_CASE(the_selected_row_is_highlighted),
         TEST_CASE(the_scrollbar_appears_only_when_items_overflow),
-        TEST_CASE(the_selected_row_has_a_shine_line_and_shades_down),
+        TEST_CASE(the_selected_row_is_one_flat_color),
         TEST_CASE(the_scrollbar_thumb_sits_inset_without_a_track),
         TEST_CASE(a_row_that_opens_something_shows_a_chevron),
         TEST_CASE(a_detail_is_drawn_in_the_secondary_color_at_the_right),

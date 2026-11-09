@@ -3,8 +3,7 @@
 #include "gfx/image.h"
 
 enum {
-    COVER_MARGIN_TOP = 8,
-    REFLECTION_LIGHT = 80
+    COVER_MARGIN_TOP = 8
 };
 
 static const Color PANEL_BACKGROUND = COLOR_RGB(8, 8, 10);
@@ -85,10 +84,7 @@ void home_art_draw(void *context, Canvas *canvas, Rect area)
 {
     const HomeArt *art = context;
     bool below = theme_is_portrait(art->theme);
-    Rect divider =
-        below ? (Rect){area.x, area.y, area.width, 1} : (Rect){area.x, area.y, 1, area.height};
     canvas_fill_rect(canvas, area, PANEL_BACKGROUND);
-    canvas_fill_rect(canvas, divider, art->theme->colors.divider);
     Image cover;
     if (!art->has_album || cover_cache_full(art->covers, art->album, &cover) != COVER_LOADED) {
         return;
@@ -97,7 +93,4 @@ void home_art_draw(void *context, Canvas *canvas, Rect area)
     int top = below ? area.y + (area.height - COVER_FULL_SIZE) / 2 : area.y + COVER_MARGIN_TOP;
     Quad quad = {left, COVER_FULL_SIZE, top, COVER_FULL_SIZE, top, COVER_FULL_SIZE};
     image_draw_quad(canvas, cover, quad);
-    int rows = area.y + area.height - (top + COVER_FULL_SIZE);
-    image_draw_reflection(canvas, cover, quad, (QuadLight){REFLECTION_LIGHT, REFLECTION_LIGHT},
-                          rows);
 }

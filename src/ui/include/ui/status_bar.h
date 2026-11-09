@@ -19,6 +19,18 @@ typedef enum StatusBluetooth {
     STATUS_BLUETOOTH_CONNECTED
 } StatusBluetooth;
 
+typedef enum StatusRepeat {
+    STATUS_REPEAT_OFF,
+    STATUS_REPEAT_ONE,
+    STATUS_REPEAT_ALL
+} StatusRepeat;
+
+typedef enum StatusShuffle {
+    STATUS_SHUFFLE_OFF,
+    STATUS_SHUFFLE_SONGS,
+    STATUS_SHUFFLE_ALBUMS
+} StatusShuffle;
+
 enum {
     STATUS_BAR_LOW_BATTERY_PERCENT = 15,
     STATUS_BAR_PERCENT_CAPACITY = 8
@@ -27,6 +39,8 @@ enum {
 typedef struct StatusBarState {
     StatusPlayback playback;
     StatusBluetooth bluetooth;
+    StatusRepeat repeat;
+    StatusShuffle shuffle;
     bool battery_known;
     uint8_t battery_percent;
     bool charging;

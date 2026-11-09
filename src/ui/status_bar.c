@@ -129,6 +129,17 @@ static void draw_battery(Canvas *canvas, const Theme *theme, StatusBarState stat
     canvas_fill_rect(canvas, inner, fill_color(theme, state));
 }
 
+static int draw_mode_text(Canvas *canvas, const Theme *theme, int x, const char *text)
+{
+    Rect playback = status_bar_playback_area(theme);
+    TextStyle style = {.font = theme->fonts.small, .color = theme->colors.header_text};
+    int width = text_width(style.font, text);
+    Rect area = {x, playback.y, width, playback.height};
+    label_draw(canvas, style,
+               (Label){.area = label_centered_area(style.font, area, text), .text = text});
+    return x + width + percent_gap(theme);
+}
+
 void status_bar_draw(Canvas *canvas, const Theme *theme, StatusBarState state)
 {
     Rect icon = status_bar_playback_area(theme);
@@ -142,6 +153,14 @@ void status_bar_draw(Canvas *canvas, const Theme *theme, StatusBarState state)
         Color tint =
             state.bluetooth == STATUS_BLUETOOTH_CONNECTED ? color : theme->colors.text_tertiary;
         icon_draw_bluetooth(canvas, status_bar_bluetooth_area(theme), tint);
+    }
+    Rect last = state.bluetooth != STATUS_BLUETOOTH_OFF ? status_bar_bluetooth_area(theme) : icon;
+    int x = last.x + last.width + percent_gap(theme);
+    if (state.repeat != STATUS_REPEAT_OFF) {
+        x = draw_mode_text(canvas, theme, x, state.repeat == STATUS_REPEAT_ONE ? "1" : "ALL");
+    }
+    if (state.shuffle != STATUS_SHUFFLE_OFF) {
+        draw_mode_text(canvas, theme, x, state.shuffle == STATUS_SHUFFLE_ALBUMS ? "A" : "S");
     }
     if (state.battery_known) {
         draw_battery(canvas, theme, state);
