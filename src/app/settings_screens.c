@@ -3,6 +3,7 @@
 #include "core/i18n.h"
 #include "hal/audio.h"
 #include "hal/clock.h"
+#include "hal/system.h"
 
 enum {
     BRIGHTNESS_LEVEL_COUNT = SETTINGS_BRIGHTNESS_MAX - SETTINGS_BRIGHTNESS_MIN + 1,
