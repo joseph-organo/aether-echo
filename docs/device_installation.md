@@ -1,10 +1,10 @@
 # Installing development builds
 
-This covers installing builds you made yourself. Release users should follow `docs/user-guide.md`. Before trying a build of your own, make sure you can recover the player (`docs/device-recovery.md`).
+This covers installing builds you made yourself. Release users should follow `docs/user_guide.md`. Before trying a build of your own, make sure you can recover the player (`docs/device_recovery.md`).
 
 ## First install
 
-The first install goes through FiiO's own updater, as in the user guide: copy `ECHOV400.IMG` (from `build/device/` or `build/release/`) to the top level of internal storage while FiiO's firmware runs, eject, unplug, take the microSD card out and restart. It has worked from FiiO 3.7.0 and 3.9.0 with the file copied from Windows.
+The first install goes through FiiO's own updater, as in the user guide: copy `ECHOV410.IMG` (from `build/device/` or `build/release/`) to the top level of internal storage while FiiO's firmware runs, eject, unplug, take the microSD card out and restart. It has worked from FiiO 3.7.0 and 3.9.0 with the file copied from Windows.
 
 ### Fallback: a direct maskrom write
 
@@ -14,10 +14,10 @@ If FiiO's updater won't take the file, maskrom can write the image straight into
 
    ```sh
    cmake --preset device && cmake --build --preset device
-   head -c 5242880 build/device/ECHOV400.IMG > build/device/slot.bin
+   head -c 5242880 build/device/ECHOV410.IMG > build/device/slot.bin
    ```
 
-2. Enter maskrom (`docs/device-recovery.md`, step 2).
+2. Enter maskrom (`docs/device_recovery.md`, step 2).
 3. Write slot 2, then slot 1, and read both back:
 
    ```powershell
@@ -29,21 +29,21 @@ If FiiO's updater won't take the file, maskrom can write the image straight into
    ```
 
    Both read-backs must equal the first 512 bytes of `slot.bin`.
-4. `./rkdeveloptool rd`. The player starts EchoPod.
+4. `./rkdeveloptool rd`. The player starts AETHER.
 
-## Later updates: EchoPod's own updater
+## Later updates: AETHER's own updater
 
 1. Connect the player. It shows "Computer found", and two drives appear: internal storage ("ECHO MINI") and the SD card.
 2. Copy the new image to the top level of internal storage and check it:
-   - Windows (PowerShell): `Copy-Item build\device\ECHOV400.IMG E:\` then `Get-FileHash E:\ECHOV400.IMG`, with E: the internal drive.
-3. Eject both drives. The player shows "Checking ECHOV400.IMG", then "Installing update" with a percentage, then "Update installed".
+   - Windows (PowerShell): `Copy-Item build\device\ECHOV410.IMG E:\` then `Get-FileHash E:\ECHOV410.IMG`, with E: the internal drive.
+3. Eject both drives. The player shows "Checking ECHOV410.IMG", then "Installing update" with a percentage, then "Update installed".
 4. Unplug, hold Power to switch off, then switch on. The new build starts.
 
 The updater takes the highest-numbered `ECHOVnnn.IMG`. It checks the image's shape, rows, entry vector, header copy and CRC before writing, skips an image that is already installed, and writes slot 2 first, then slot 1, reading back every chunk. It also accepts FiiO's own Echo image (ECHOV200.IMG, see "Going back to FiiO's firmware" in the user guide) and refuses the Echo Mini images.
 
 ## What to check after an install
 
-- **Home screen:** "EchoPod" with Music, Now Playing, Settings and Diagnostics. Without a card, Music says "No library".
+- **Home screen:** "AETHER" with Music, Folders and Settings (Now Playing once something has played, Audiobooks and Podcasts when the card has them; Diagnostics is inside Settings). Without a card, Music says "No library".
 - **Diagnostics → Firmware:** the commit you built.
 - **Keys:** Diagnostics → Key test.
 - **Power:** a tap turns the screen off and on. Holding it for 2 s switches the player off; with a cable in, it shows the charge screen instead, and holding Power again turns the player back on.
@@ -55,7 +55,7 @@ The updater takes the highest-numbered `ECHOVnnn.IMG`. It checks the image's sha
 | Symptom | Next step |
 |---|---|
 | Black screen, but the drives appear over USB | Copy a fixed image with the updater |
-| Black screen and nothing over USB | Maskrom recovery (`docs/device-recovery.md`), then a direct maskrom write of a fixed image |
+| Black screen and nothing over USB | Maskrom recovery (`docs/device_recovery.md`), then a direct maskrom write of a fixed image |
 | "Update not installed" | The file isn't a valid image for this player; rebuild it and copy it again |
 | "Update failed" | Copy the file again and retry before turning the player off |
 | A STALL or FAULT screen | Note the values shown, then hold Power for 2 s |

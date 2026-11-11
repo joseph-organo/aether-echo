@@ -5,12 +5,12 @@ A map of the hardware driven by the FiiO Snowsky Echo (full-size model, NOT Mini
 ## Chip and Memory
 
 - **SoC:** Rockchip RKnano dual-core Cortex-M3.
-  - **Core 0:** Runs the main EchoPod firmware, application layer, UI, and event loop.
+  - **Core 0:** Runs the main AETHER firmware, application layer, UI, and event loop.
   - **Core 1:** Dedicated audio decoder engine (FLAC, ALAC, MP3, AAC, Opus) loaded on demand.
 - **Core 0 Data RAM:** `0x03004000`–`0x0304C000`. Code execution starts at `0x03050000` (~157 KB code window limit).
 - **High RAM:** `0x0307A000`–`0x0309EFFF` (148 KB). Used for housing the library rescan overlay code during card indexing.
 - **Core 1 RAM:** `0x01000000`–`0x0105FFFF` (384 KB). Serves as decoder working memory and as scratch memory during library scanning while playback is stopped.
-- **Clocks:** Boot ROM starts cores at 24 MHz. EchoPod switches PLL to 96 MHz or 200 MHz dynamically depending on load (200 MHz active for audio decoding and UI, 96 MHz floor when idle).
+- **Clocks:** Boot ROM starts cores at 24 MHz. AETHER switches PLL to 96 MHz or 200 MHz dynamically depending on load (200 MHz active for audio decoding and UI, 96 MHz floor when idle).
 
 ## Display and Keys (Echo Full-Size Specifics)
 
@@ -30,7 +30,7 @@ A map of the hardware driven by the FiiO Snowsky Echo (full-size model, NOT Mini
   3. Firmware Slot 2 (rockusb sector 69632 / `0x11000`, holds backup firmware slot)
   4. SAVE block
   5. FAT32 user partition (appears as "ECHO" over USB)
-  *Note:* EchoPod strictly fences writes to the user partition and firmware slots, never touching the ID block or SAVE block.
+  *Note:* AETHER strictly fences writes to the user partition and firmware slots, never touching the ID block or SAVE block.
 - **MicroSD Slot:** Card controller supporting FAT16, FAT32, and exFAT with hardware card detect pin.
 
 ## Audio Pipeline
@@ -49,7 +49,7 @@ A map of the hardware driven by the FiiO Snowsky Echo (full-size model, NOT Mini
 - **Controller:** DesignWare USB 2.0 OTG controller.
 - **Storage Mode:** Serves internal storage and SD card as dual LUN Mass Storage Class devices (`1209:0001`).
 - **USB DAC Mode:** USB Audio Class 1.0 sound card (`1209:0002`), full-speed only, 16/24-bit stereo PCM at 44.1 kHz and 48 kHz. Synchronized via adaptive ring-level control in `device/stream_drift.c`.
-- **Maskrom Mode:** Boot ROM recovery mode exposes USB ID `2207:262d` when powered up with buttons held (`docs/device-recovery.md`).
+- **Maskrom Mode:** Boot ROM recovery mode exposes USB ID `2207:262d` when powered up with buttons held (`docs/device_recovery.md`).
 
 ## Bluetooth
 
@@ -58,6 +58,6 @@ A map of the hardware driven by the FiiO Snowsky Echo (full-size model, NOT Mini
 
 ## Firmware Image & Naming
 
-- **Image Container:** `ECHOV400.IMG` is a 5 MiB `RKnanoFW` container holding outer headers, row tables, code/data, header copy at `0x44C000`, and CRC-32 trailer at `0x500000`.
-- **Target File Naming:** Target updater looks for `ECHOVnnn.IMG` (e.g. `ECHOV400.IMG` or FiiO's stock `ECHOV200.IMG`). Refuses `MINIVnnn.IMG` images meant for the 512 MB Echo Mini model.
+- **Image Container:** `ECHOV410.IMG` is a 5 MiB `RKnanoFW` container holding outer headers, row tables, code/data, header copy at `0x44C000`, and CRC-32 trailer at `0x500000`.
+- **Target File Naming:** Target updater looks for `ECHOVnnn.IMG` (e.g. `ECHOV410.IMG` or FiiO's stock `ECHOV200.IMG`). Refuses `MINIVnnn.IMG` images meant for the 512 MB Echo Mini model.
 - **Build Tools:** Built via `tools/make_image.py`.

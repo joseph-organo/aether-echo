@@ -95,8 +95,7 @@ enum {
     I2S_RESET_MS = 1,
     I2S_CLEAR_MS = 2,
     ACODEC_SETTLE_MS = 5,
-    FADE_STEP_US = 2000,
-    UNMUTE_SETTLE_US = 30000
+    FADE_STEP_US = 2000
 };
 
 typedef enum I2cStage {
@@ -560,7 +559,6 @@ void dac_path_set_muted(bool mute)
         dac_set_muted(&BUS, true, DAC_VOLUME_MUTED);
         return;
     }
-    wait_serving(UNMUTE_SETTLE_US);
     dac_set_muted(&BUS, false, applied_volume);
     fade_to(current_volume());
 }

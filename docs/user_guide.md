@@ -1,15 +1,15 @@
-# EchoPod user guide
+# AETHER user guide
 
-EchoPod is a replacement firmware for the Snowsky (FiiO) Echo Mini music player. It has a Cover Flow album browser, a music library built on the player, favorites, playlists and an Up Next queue. It is not made or supported by FiiO.
+AETHER is a replacement firmware for the Snowsky (FiiO) Echo music player (the full-size model, not the Echo Mini). It is a fork of AETHER by BasilSkyWalk. It has a Cover Flow album browser, a music library built on the player, favorites, playlists and an Up Next queue. It is not made or supported by FiiO.
 
-Read `docs/known-issues.md` before you install. EchoPod has been tested on one player so far.
+Read `docs/known_issues.md` before you install. AETHER has been tested on one player so far.
 
-**Use it at your own risk.** EchoPod comes with no warranty (see `LICENSE`). Replacing a player's firmware can leave it unable to start; during development that happened, and the player was brought back through maskrom (`docs/device-recovery.md`). Only install it if you're prepared to do that.
+**Use it at your own risk.** AETHER comes with no warranty (see `LICENSE`). Replacing a player's firmware can leave it unable to start; during development that happened, and the player was brought back through maskrom (`docs/device_recovery.md`). Only install it if you're prepared to do that.
 
 ## Which players
 
-- **Echo Mini 8 GB: supported.** Its FiiO update file is called `ECHOVnnn.IMG`.
-- **Echo Mini 512 MB: not supported.** Its FiiO update file is called `MINIVnnn.IMG`. Its firmware ignores EchoPod's file, and EchoPod refuses its firmware.
+- **Echo (full size): supported.** Its FiiO update file is called `ECHOVnnn.IMG`.
+- **Echo Mini (any model): not supported.** AETHER refuses the Echo Mini's FiiO firmware images.
 
 Tested starting points: FiiO firmware 3.7.0, 3.9.0 and 4.0.0 (Settings → About on the player shows yours).
 
@@ -17,30 +17,30 @@ Tested starting points: FiiO firmware 3.7.0, 3.9.0 and 4.0.0 (Settings → About
 
 1. Copy anything you want to keep off the player's internal storage.
 2. Charge the battery.
-3. Download `ECHOV400.IMG` and `SHA256SUMS.txt` from the [EchoPod releases](https://github.com/BasilSkyWalk/echopod/releases), and check the file:
-   - Windows (PowerShell): `Get-FileHash ECHOV400.IMG`
+3. Get `ECHOV410.IMG` and its checksum from the AETHER release, and check the file:
+   - Windows (PowerShell): `Get-FileHash ECHOV410.IMG`
 
-   The result must match the line for `ECHOV400.IMG` in `SHA256SUMS.txt`. If it doesn't, download it again.
+   The result must match the line for `ECHOV410.IMG` in `SHA256SUMS.txt`. If it doesn't, download it again.
 
 ## Install
 
-1. Connect the player to your computer. The internal storage appears as a drive called ECHO MINI.
-2. Copy `ECHOV400.IMG` to the top level of that drive, not into a folder. Delete any other `ECHOVnnn.IMG` file there first: the player installs the one with the highest number.
+1. Connect the player to your computer. The internal storage appears as a drive.
+2. Copy `ECHOV410.IMG` to the top level of that drive, not into a folder. Delete any other `ECHOVnnn.IMG` file there first: the player installs the one with the highest number.
 3. Eject the drive (Windows: Safely Remove), then unplug.
 4. Take the microSD card out.
-5. Switch the player off and on again. It shows "Updating, Don't power off" for about a minute or two. Leave it alone until EchoPod starts.
-6. Put the microSD card back. On the first start with a card, EchoPod builds its library and album covers, which takes a minute or two (about 1 minute 45 seconds for 1,563 tracks and 144 albums).
+5. Switch the player off and on again. It shows "Updating, Don't power off" for about a minute or two. Leave it alone until AETHER starts.
+6. Put the microSD card back. On the first start with a card, AETHER builds its library and album covers, which takes a minute or two (about 1 minute 45 seconds for 1,563 tracks and 144 albums).
 
 If "Updating" flashes for under a second and FiiO's firmware comes back, the install didn't happen. See "If something goes wrong" below. One tester whose FiiO firmware kept refusing the file got it to install after first updating to FiiO's 3.8 firmware.
 
 ## Your music
 
 - Put music on a microSD card formatted FAT32 or exFAT, in any folder layout.
-- EchoPod plays FLAC, ALAC (Apple Lossless `.m4a`), AAC (`.m4a`), Opus (`.opus`), MP3 and WAV, up to 192 kHz. HE-AAC isn't supported yet. It lists the other formats FiiO lists, and says when it can't play one.
+- AETHER plays FLAC, ALAC (Apple Lossless `.m4a`), AAC (`.m4a`), Opus (`.opus`), MP3 and WAV, up to 192 kHz. HE-AAC isn't supported yet. It lists the other formats FiiO lists, and says when it can't play one.
 - Album covers come from art inside each album's first track, or from a `cover`, `folder`, `front` or `albumart` JPEG or PNG next to the tracks.
 - `.m3u` and `.m3u8` playlists anywhere on the card appear under Music → Playlists.
-- Libraries of many thousands of tracks work; `docs/known-issues.md` lists the sizes tested so far.
-- EchoPod keeps its own files in a hidden `/.echo` folder on the card, about 110 MB of them. Don't delete it unless you want the library rebuilt.
+- Libraries of many thousands of tracks work; `docs/known_issues.md` lists the sizes tested so far.
+- AETHER keeps its own files in a hidden `/.echo` folder on the card, about 110 MB of them. Don't delete it unless you want the library rebuilt.
 
 ## Copying music over USB
 
@@ -51,15 +51,15 @@ If "Updating" flashes for under a second and FiiO's firmware comes back, the ins
 
 ## Using the player as a USB DAC
 
-**Untested on a player so far** (see `docs/known-issues.md`). In this mode the player is a sound card for your computer or phone: their audio plays through the player's headphone outputs.
+**Untested on a player so far** (see `docs/known_issues.md`). In this mode the player is a sound card for your computer or phone: their audio plays through the player's headphone outputs.
 
 1. On the player, Settings → USB mode → DAC.
 2. Plug in the USB cable. The player shows "USB DAC". No driver is needed on Windows 10 and later (phones need a USB-C adapter that passes data).
-3. On the computer, choose EchoPod as the sound output (Windows: the speaker icon in the taskbar). The player shows the format, for example "Playing from computer · 48 kHz 24-bit".
+3. On the computer, choose AETHER as the sound output (Windows: the speaker icon in the taskbar). The player shows the format, for example "Playing from computer · 48 kHz 24-bit".
 4. Use the computer's volume, the player's volume keys, or both. DAC mode has its own volume, separate from music: it starts at 30 of 50, the screen shows it ("48 kHz 24-bit · Volume 30"), holding Vol± changes it quickly, and the player remembers it for next time. Start low.
 5. Unplug when you're done, or hold Back for a second and let go to go back to the player's own music (it keeps charging).
 
-The player accepts 16 or 24-bit at 44.1 and 48 kHz; the computer picks one (Windows: Sound settings → EchoPod → Properties → Advanced). Music on the player stops while it's a DAC, and your drives don't appear: set USB mode back to Storage to copy music. The setting takes effect the next time you plug in. A charger works the same in both modes.
+The player accepts 16 or 24-bit at 44.1 and 48 kHz; the computer picks one (Windows: Sound settings → AETHER → Properties → Advanced). Music on the player stops while it's a DAC, and your drives don't appear: set USB mode back to Storage to copy music. The setting takes effect the next time you plug in. A charger works the same in both modes.
 
 ## Build the library on a computer
 

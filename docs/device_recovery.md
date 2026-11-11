@@ -1,6 +1,6 @@
 # Recovering a player through maskrom
 
-If the player doesn't start at all, its chip's maskrom mode can still write FiiO's firmware back from a computer over USB. This is the last resort: the normal way back to FiiO's firmware is a file copy (`docs/user-guide.md`, "Going back to FiiO's firmware").
+If the player doesn't start at all, its chip's maskrom mode can still write FiiO's firmware back from a computer over USB. This is the last resort: the normal way back to FiiO's firmware is a file copy (`docs/user_guide.md`, "Going back to FiiO's firmware").
 
 Maskrom writes go straight to internal storage, below the file system. A wrong command can leave the player unable to start until a later write succeeds. Follow the steps exactly, and don't run any command not listed here.
 

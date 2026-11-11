@@ -7,3 +7,8 @@ __pycache__/
 .venv/
 log/
 assets/fonts/noto-cjk/*.otf
+*.IMG
+/s1.bin
+/s2.bin
+/slot*.bin
+echo-flash-*.bin

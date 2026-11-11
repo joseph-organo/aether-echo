@@ -1,6 +1,6 @@
 # Architecture
 
-EchoPod, replacement firmware for the Snowsky Echo (full-size model, NOT Mini). The app layer is portable C. It runs in a desktop simulator (Windows) during development and on the device on top of a thin hardware layer.
+AETHER, replacement firmware for the Snowsky Echo (full-size model, NOT Mini). The app layer is portable C. It runs in a desktop simulator (Windows) during development and on the device on top of a thin hardware layer.
 
 ## Layers
 

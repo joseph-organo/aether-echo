@@ -42,7 +42,7 @@ cmake --preset release
 cmake --build --preset release
 ```
 
-This writes `build/release/ECHOV400.IMG`. The `device` preset builds the same image with the developer Diagnostics rows. `docs/device_install.md` covers installing builds during development.
+This writes `build/release/ECHOV410.IMG`. The `device` preset builds the same image with the developer Diagnostics rows. `docs/device_installation.md` covers installing builds during development.
 
 ## Use your music library in the simulator
 
