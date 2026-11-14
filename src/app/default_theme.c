@@ -25,9 +25,9 @@ const Theme DEFAULT_THEME = {
         },
     .fonts =
         {
-            .title = &FONT_INTER_SEMIBOLD_16,
-            .body = &FONT_INTER_REGULAR_16,
-            .small = &FONT_INTER_REGULAR_12,
+            .title = &FONT_ROBOTO_MEDIUM_16,
+            .body = &FONT_ROBOTO_REGULAR_16,
+            .small = &FONT_ROBOTO_REGULAR_12,
         },
     .metrics =
         {

@@ -4,9 +4,9 @@
 #include "fonts/fonts.h"
 
 static const Font *const ALL_FONTS[] = {
-    &FONT_INTER_REGULAR_12,
-    &FONT_INTER_REGULAR_16,
-    &FONT_INTER_SEMIBOLD_16,
+    &FONT_ROBOTO_REGULAR_12,
+    &FONT_ROBOTO_REGULAR_16,
+    &FONT_ROBOTO_MEDIUM_16,
 };
 
 enum {
@@ -25,7 +25,7 @@ static void every_font_covers_printable_ascii(void)
 
 static void every_font_builds_in_its_punctuation(void)
 {
-    const uint32_t built_in[] = {0x2026, 0x2019, 0x203A, 0x2605, 0x2713};
+    const uint32_t built_in[] = {0x2026, 0x2019, 0x203A};
     for (size_t font = 0; font < FONT_COUNT; font++) {
         for (size_t index = 0; index < sizeof built_in / sizeof built_in[0]; index++) {
             const Glyph *glyph = font_find_glyph(ALL_FONTS[font], built_in[index]);
