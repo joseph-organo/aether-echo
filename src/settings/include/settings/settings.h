@@ -54,12 +54,18 @@ typedef enum Orientation {
     ORIENTATION_PORTRAIT_FLIPPED
 } Orientation;
 
+typedef enum NowPlayingView {
+    NOW_PLAYING_LYRICS,
+    NOW_PLAYING_DETAILS
+} NowPlayingView;
+
 enum {
     GAIN_LEVEL_COUNT = GAIN_HIGH + 1,
     OUTPUT_JACK_COUNT = OUTPUT_BALANCED + 1,
     START_SCREEN_COUNT = START_COVER_FLOW + 1,
     USB_MODE_COUNT = USB_MODE_DAC + 1,
     ORIENTATION_COUNT = ORIENTATION_PORTRAIT_FLIPPED + 1,
+    NOW_PLAYING_VIEW_COUNT = NOW_PLAYING_DETAILS + 1,
     LANGUAGE_COUNT = LANGUAGE_FINNISH + 1,
     SETTINGS_BRIGHTNESS_MIN = 1,
     SETTINGS_BRIGHTNESS_MAX = 10,
@@ -90,6 +96,7 @@ typedef struct Settings {
     Language language;
     uint8_t filter;
     uint8_t balance;
+    NowPlayingView now_playing_view;
 } Settings;
 
 Settings settings_defaults(void);

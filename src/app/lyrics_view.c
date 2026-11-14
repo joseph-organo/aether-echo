@@ -77,8 +77,9 @@ void lyrics_view_clear(LyricsView *view)
     view->loaded = false;
     view->line = LYRICS_VIEW_UNSET;
     view->changed_ms = 0;
-    view->current[0] = '\0';
-    view->next[0] = '\0';
+    for (int row = 0; row < LYRICS_VIEW_ROWS; row++) {
+        view->rows[row][0] = '\0';
+    }
 }
 
 void lyrics_view_open(LyricsView *view, const Library *library, uint16_t track_index)
@@ -103,16 +104,18 @@ bool lyrics_view_follow(LyricsView *view, uint32_t position_ms, uint32_t now_ms)
     if (line == view->line) {
         return true;
     }
-    view->current[0] = '\0';
-    view->next[0] = '\0';
+    for (int row = 0; row < LYRICS_VIEW_ROWS; row++) {
+        view->rows[row][0] = '\0';
+    }
     HalFile file;
     if (hal_file_open(&file, view->path)) {
         ByteSource source = {.read = read_file, .context = &file};
-        if (line >= 0) {
-            lyrics_text(&view->lyrics, source, (uint16_t)line, view->current, sizeof view->current);
-        }
-        if (line + 1 < (int32_t)view->lyrics.count) {
-            lyrics_text(&view->lyrics, source, (uint16_t)(line + 1), view->next, sizeof view->next);
+        for (int row = 0; row < LYRICS_VIEW_ROWS; row++) {
+            int32_t index = line + row - LYRICS_VIEW_CURRENT_ROW;
+            if (index >= 0 && index < (int32_t)view->lyrics.count) {
+                lyrics_text(&view->lyrics, source, (uint16_t)index, view->rows[row],
+                            sizeof view->rows[row]);
+            }
         }
         hal_file_close(&file);
     }

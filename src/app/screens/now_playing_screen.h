@@ -9,6 +9,7 @@
 #include "library/library.h"
 #include "lyrics_view.h"
 #include "player.h"
+#include "settings/settings.h"
 #include "ui/screen.h"
 #include "ui/theme.h"
 
@@ -59,6 +60,7 @@ typedef struct NowPlayingConfig {
     CoverCache *covers;
     Screen *up_next;
     Screen *equalizer;
+    const Settings *settings;
 } NowPlayingConfig;
 
 typedef struct NowPlayingScreen {

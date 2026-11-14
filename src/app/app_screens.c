@@ -230,6 +230,7 @@ Screen *app_screens_init(AppScreens *screens, AppScreensContext context)
                                     .library = &context.store->library,
                                     .theme = theme,
                                     .covers = context.covers,
+                                    .settings = &context.settings->settings,
                                     .up_next = up_next_screen_init(&screens->up_next, up_next)};
     EqualizerConfig equalizer = {
         .store = context.equalizer, .toast = context.toast, .theme = theme};

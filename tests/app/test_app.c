@@ -24,7 +24,7 @@ enum {
     START_MS = 1000,
     KEY_HOLD_MS = 30,
     FULL_FRAME_PIXELS = HAL_DISPLAY_WIDTH * HAL_DISPLAY_HEIGHT,
-    SETTINGS_DIAGNOSTICS_INDEX = 17,
+    SETTINGS_DIAGNOSTICS_INDEX = 18,
     HOME_FOLDERS_INDEX = 1,
     DIAGNOSTICS_FRAME_TIME_INDEX = 1,
     DIAGNOSTICS_FIRMWARE_INDEX = 2,
@@ -45,8 +45,8 @@ enum {
     SETTINGS_LANGUAGE_INDEX = 16,
     MUSIC_COVER_FLOW_INDEX = 0,
     MUSIC_PLAYLISTS_INDEX = 6,
-    COVER_CENTER_X = 160,
-    COVER_CENTER_Y = 60,
+    COVER_CENTER_X = 240,
+    COVER_CENTER_Y = 90,
     SETTLE_STEPS = 30,
     RED_COVER = 0xF800,
     BLUE_COVER = 0x001F,
@@ -379,7 +379,7 @@ static void folders_can_be_browsed_down_to_an_album(void)
     CHECK(title_is("AC DC"));
     tap(KEY_PLAY);
     CHECK(title_is("Back In Black"));
-    CHECK_EQUAL(5, app_screen_depth());
+    CHECK_EQUAL(4, app_screen_depth());
 }
 
 static void without_a_library_the_lists_explain_what_is_missing(void)
@@ -493,7 +493,7 @@ static void the_home_menu_shows_now_playing_after_music_once_a_track_is_loaded(v
 static void the_home_menu_hides_now_playing_with_nothing_loaded(void)
 {
     start_app_with_library();
-    move_down(HOME_NOW_PLAYING_INDEX);
+    move_down(HOME_SETTINGS_INDEX + 1);
     tap(KEY_PLAY);
     CHECK(title_is("Music"));
 }
@@ -701,6 +701,7 @@ static void the_rocker_stays_turned_around_after_a_restart(void)
     choose_orientation(swapping_portrait());
     restart_app();
     tap(KEY_VOLUME_DOWN);
+    tap(KEY_VOLUME_DOWN);
     tap(KEY_PLAY);
     CHECK(title_is("Settings"));
 }
@@ -714,8 +715,9 @@ static void a_new_screen_slides_in_from_the_right(void)
 {
     start_app();
     step();
+    move_down(HOME_SETTINGS_INDEX);
     tap(KEY_PLAY);
-    CHECK(title_is("Music"));
+    CHECK(title_is("Settings"));
     CHECK(scrollbar_probe() != DEFAULT_THEME.colors.scrollbar_thumb);
     wait_ms(SLIDE_DURATION_MS / 2);
     CHECK(scrollbar_probe() != DEFAULT_THEME.colors.scrollbar_thumb);

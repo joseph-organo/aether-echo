@@ -47,6 +47,8 @@ static const StringId OUTPUT_MESSAGES[OUTPUT_JACK_COUNT] = {
 static const StringId START_OPTIONS[START_SCREEN_COUNT] = {
     STR_SETTINGS_MAIN_MENU, STR_MENU_NOW_PLAYING, STR_MENU_ALBUMS,    STR_MENU_ARTISTS,
     STR_MENU_FAVORITES,     STR_MENU_PLAYLISTS,   STR_MENU_COVER_FLOW};
+static const StringId NOW_PLAYING_VIEW_OPTIONS[NOW_PLAYING_VIEW_COUNT] = {
+    STR_SETTINGS_VIEW_LYRICS, STR_SETTINGS_VIEW_DETAILS};
 static const StringId LANGUAGE_OPTIONS[LANGUAGE_COUNT] = {
     STR_LANGUAGE_EN, STR_LANGUAGE_ZH, STR_LANGUAGE_JA, STR_LANGUAGE_KO, STR_LANGUAGE_DE,
     STR_LANGUAGE_FR, STR_LANGUAGE_ES, STR_LANGUAGE_IT, STR_LANGUAGE_PT, STR_LANGUAGE_NL,
@@ -269,6 +271,17 @@ static void choose_language(void *context, int index)
     toast_show(settings->toast, i18n_text(STR_LANGUAGE_RESTART), hal_clock_milliseconds());
 }
 
+static int current_now_playing_view(const void *context)
+{
+    return (int)settings_of(context)->now_playing_view;
+}
+
+static void choose_now_playing_view(void *context, int index)
+{
+    editable_settings(context)->now_playing_view = (NowPlayingView)index;
+    save(context);
+}
+
 static const SettingChoice CHOICES[SETTINGS_CHOICE_COUNT] = {
     {STR_SETTINGS_SHUFFLE, SHUFFLE_OPTIONS, NULL, SHUFFLE_MODE_COUNT, current_shuffle,
      choose_shuffle, NULL},
@@ -297,6 +310,8 @@ static const SettingChoice CHOICES[SETTINGS_CHOICE_COUNT] = {
      choose_usb_mode, NULL},
     {STR_LANGUAGE_TITLE, LANGUAGE_OPTIONS, NULL, LANGUAGE_COUNT, current_language, choose_language,
      NULL},
+    {STR_SETTINGS_NOW_PLAYING_VIEW, NOW_PLAYING_VIEW_OPTIONS, NULL, NOW_PLAYING_VIEW_COUNT,
+     current_now_playing_view, choose_now_playing_view, NULL},
 };
 
 static ScreenAction open_choice(void *context)

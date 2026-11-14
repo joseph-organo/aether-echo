@@ -100,7 +100,7 @@ static void the_usb_mode_and_dac_volume_are_saved_at_bytes_fifteen_and_sixteen(v
     Settings settings = custom_settings();
     uint8_t bytes[SETTINGS_FILE_SIZE];
     settings_encode(&settings, bytes);
-    CHECK_EQUAL(7, bytes[VERSION_FIELD]);
+    CHECK_EQUAL(8, bytes[VERSION_FIELD]);
     CHECK_EQUAL(USB_MODE_DAC, bytes[USB_MODE_FIELD]);
     CHECK_EQUAL(37, bytes[DAC_VOLUME_FIELD]);
 }
@@ -223,7 +223,45 @@ static void a_newer_version_is_rejected(void)
     Settings settings = custom_settings();
     uint8_t bytes[SETTINGS_FILE_SIZE];
     settings_encode(&settings, bytes);
-    bytes[VERSION_FIELD] = 8;
+    bytes[VERSION_FIELD] = 9;
+    rewrite_checksum(bytes);
+    CHECK(!settings_decode(bytes, sizeof bytes, &settings));
+}
+
+static void the_now_playing_view_is_saved_in_the_old_reserved_byte(void)
+{
+    Settings settings = custom_settings();
+    settings.now_playing_view = NOW_PLAYING_DETAILS;
+    uint8_t bytes[SETTINGS_FILE_SIZE];
+    settings_encode(&settings, bytes);
+    CHECK_EQUAL(1, bytes[5]);
+    Settings loaded;
+    CHECK(settings_decode(bytes, sizeof bytes, &loaded));
+    CHECK_EQUAL(NOW_PLAYING_DETAILS, loaded.now_playing_view);
+}
+
+static void a_version_seven_file_gets_the_lyrics_view(void)
+{
+    Settings settings = custom_settings();
+    uint8_t bytes[SETTINGS_FILE_SIZE];
+    settings_encode(&settings, bytes);
+    bytes[VERSION_FIELD] = 7;
+    bytes[5] = 0;
+    rewrite_checksum(bytes);
+    Settings loaded;
+    CHECK(settings_decode(bytes, sizeof bytes, &loaded));
+    CHECK_EQUAL(NOW_PLAYING_LYRICS, loaded.now_playing_view);
+    bytes[5] = 1;
+    rewrite_checksum(bytes);
+    CHECK(!settings_decode(bytes, sizeof bytes, &loaded));
+}
+
+static void an_unknown_now_playing_view_is_rejected(void)
+{
+    Settings settings = custom_settings();
+    uint8_t bytes[SETTINGS_FILE_SIZE];
+    settings_encode(&settings, bytes);
+    bytes[5] = NOW_PLAYING_VIEW_COUNT;
     rewrite_checksum(bytes);
     CHECK(!settings_decode(bytes, sizeof bytes, &settings));
 }
@@ -353,6 +391,9 @@ int main(void)
         TEST_CASE(an_unknown_language_is_rejected),
         TEST_CASE(an_unknown_orientation_is_rejected),
         TEST_CASE(a_newer_version_is_rejected),
+        TEST_CASE(the_now_playing_view_is_saved_in_the_old_reserved_byte),
+        TEST_CASE(a_version_seven_file_gets_the_lyrics_view),
+        TEST_CASE(an_unknown_now_playing_view_is_rejected),
         TEST_CASE(the_filter_and_balance_share_byte_nineteen),
         TEST_CASE(a_version_six_file_loads_with_the_first_filter_and_centred_balance),
         TEST_CASE(an_unknown_filter_or_balance_is_rejected),

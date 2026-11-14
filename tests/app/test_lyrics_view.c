@@ -48,14 +48,18 @@ static void the_lines_follow_the_playback_position(void)
     fake_hal_add_file(LYRICS_PATH, (const uint8_t *)LYRICS, (uint32_t)strlen(LYRICS));
     lyrics_view_open(&view, library, the_track(library));
     CHECK(lyrics_view_follow(&view, 0, 10));
-    CHECK_EQUAL(0, strcmp("", view.current));
-    CHECK_EQUAL(0, strcmp("first", view.next));
+    CHECK_EQUAL(0, strcmp("", view.rows[LYRICS_VIEW_CURRENT_ROW]));
+    CHECK_EQUAL(0, strcmp("first", view.rows[LYRICS_VIEW_CURRENT_ROW + 1]));
     CHECK(lyrics_view_follow(&view, 1500, 20));
-    CHECK_EQUAL(0, strcmp("first", view.current));
-    CHECK_EQUAL(0, strcmp("second", view.next));
+    CHECK_EQUAL(0, strcmp("first", view.rows[LYRICS_VIEW_CURRENT_ROW]));
+    CHECK_EQUAL(0, strcmp("second", view.rows[LYRICS_VIEW_CURRENT_ROW + 1]));
     CHECK(lyrics_view_follow(&view, 9500, 30));
-    CHECK_EQUAL(0, strcmp("third", view.current));
-    CHECK_EQUAL(0, strcmp("", view.next));
+    CHECK_EQUAL(0, strcmp("third", view.rows[LYRICS_VIEW_CURRENT_ROW]));
+    CHECK_EQUAL(0, strcmp("", view.rows[LYRICS_VIEW_CURRENT_ROW + 1]));
+    CHECK_EQUAL(0, strcmp("second", view.rows[LYRICS_VIEW_CURRENT_ROW - 1]));
+    CHECK_EQUAL(0, strcmp("first", view.rows[LYRICS_VIEW_CURRENT_ROW - 2]));
+    CHECK(lyrics_view_follow(&view, 0, 40));
+    CHECK_EQUAL(0, strcmp("second", view.rows[LYRICS_VIEW_CURRENT_ROW + 2]));
 }
 
 static void the_change_time_only_moves_when_the_line_changes(void)
@@ -77,8 +81,8 @@ static void seeking_back_shows_the_earlier_line_again(void)
     lyrics_view_open(&view, library, the_track(library));
     lyrics_view_follow(&view, 9500, 10);
     lyrics_view_follow(&view, 5500, 20);
-    CHECK_EQUAL(0, strcmp("second", view.current));
-    CHECK_EQUAL(0, strcmp("third", view.next));
+    CHECK_EQUAL(0, strcmp("second", view.rows[LYRICS_VIEW_CURRENT_ROW]));
+    CHECK_EQUAL(0, strcmp("third", view.rows[LYRICS_VIEW_CURRENT_ROW + 1]));
 }
 
 static void a_track_without_a_lyrics_file_has_nothing_to_show(void)
@@ -97,7 +101,7 @@ static void opening_a_new_track_forgets_the_old_lines(void)
     lyrics_view_follow(&view, 1500, 10);
     lyrics_view_open(&view, library, UINT16_MAX);
     CHECK(!lyrics_view_ready(&view));
-    CHECK_EQUAL(0, strcmp("", view.current));
+    CHECK_EQUAL(0, strcmp("", view.rows[LYRICS_VIEW_CURRENT_ROW]));
 }
 
 static void overwritten_memory_stops_the_lyrics_instead_of_reading_garbage(void)

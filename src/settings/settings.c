@@ -3,7 +3,7 @@
 #include "core/hash.h"
 
 enum {
-    VERSION = 7,
+    VERSION = 8,
     FIRST_VERSION = 1,
     AUTO_OFF_VERSION = 2,
     USB_MODE_VERSION = 3,
@@ -11,6 +11,8 @@ enum {
     ORIENTATION_VERSION = 5,
     LANGUAGE_VERSION = 6,
     DAC_VERSION = 7,
+    NOW_PLAYING_VERSION = 8,
+    NOW_PLAYING_FIELD = 5,
     FILTER_SHIFT = 5,
     BALANCE_MASK = 0x1F,
     MAGIC_SIZE = 4,
@@ -62,6 +64,7 @@ Settings settings_defaults(void)
         .language = LANGUAGE_ENGLISH,
         .filter = 0,
         .balance = SETTINGS_BALANCE_CENTER,
+        .now_playing_view = NOW_PLAYING_LYRICS,
     };
 }
 
@@ -130,6 +133,7 @@ void settings_encode(const Settings *settings, uint8_t *bytes)
     bytes[DAC_VOLUME_FIELD] = settings->dac_volume;
     bytes[ORIENTATION_FIELD] = (uint8_t)settings->orientation;
     bytes[LANGUAGE_FIELD] = (uint8_t)settings->language;
+    bytes[NOW_PLAYING_FIELD] = (uint8_t)settings->now_playing_view;
     bytes[DAC_FIELD] = (uint8_t)(settings->filter << FILTER_SHIFT | settings->balance);
     put_u32(bytes, CHECKSUM_FIELD, checksum_of(bytes));
 }
@@ -142,7 +146,8 @@ static bool header_valid(const uint8_t *bytes)
         }
     }
     uint8_t version = bytes[VERSION_FIELD];
-    return version >= FIRST_VERSION && version <= VERSION && bytes[VERSION_FIELD + 1] == 0 &&
+    return version >= FIRST_VERSION && version <= VERSION &&
+           (version >= NOW_PLAYING_VERSION || bytes[NOW_PLAYING_FIELD] == 0) &&
            get_u32(bytes, CHECKSUM_FIELD) == checksum_of(bytes);
 }
 
@@ -158,6 +163,8 @@ static bool values_valid(const uint8_t *bytes)
            bytes[USB_MODE_FIELD] < USB_MODE_COUNT &&
            bytes[DAC_VOLUME_FIELD] <= SETTINGS_VOLUME_MAX &&
            bytes[ORIENTATION_FIELD] < ORIENTATION_COUNT &&
+           (bytes[VERSION_FIELD] < NOW_PLAYING_VERSION ||
+            bytes[NOW_PLAYING_FIELD] < NOW_PLAYING_VIEW_COUNT) &&
            (bytes[VERSION_FIELD] < LANGUAGE_VERSION || bytes[LANGUAGE_FIELD] < LANGUAGE_COUNT) &&
            (bytes[VERSION_FIELD] < DAC_VERSION ||
             ((bytes[DAC_FIELD] >> FILTER_SHIFT) < DAC_FILTER_COUNT &&
@@ -193,6 +200,9 @@ bool settings_decode(const uint8_t *bytes, uint32_t length, Settings *settings)
         .filter = bytes[VERSION_FIELD] < DAC_VERSION ? 0 : bytes[DAC_FIELD] >> FILTER_SHIFT,
         .balance = bytes[VERSION_FIELD] < DAC_VERSION ? SETTINGS_BALANCE_CENTER
                                                       : bytes[DAC_FIELD] & BALANCE_MASK,
+        .now_playing_view = bytes[VERSION_FIELD] < NOW_PLAYING_VERSION
+                                ? NOW_PLAYING_LYRICS
+                                : (NowPlayingView)bytes[NOW_PLAYING_FIELD],
     };
     return true;
 }

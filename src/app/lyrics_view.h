@@ -9,7 +9,9 @@
 
 enum {
     LYRICS_VIEW_MAGIC = 0x4C595243,
-    LYRICS_VIEW_TEXT_CAPACITY = 160,
+    LYRICS_VIEW_TEXT_CAPACITY = 128,
+    LYRICS_VIEW_ROWS = 5,
+    LYRICS_VIEW_CURRENT_ROW = 2,
     LYRICS_VIEW_PATH_CAPACITY = PLAYER_PATH_CAPACITY + 8,
     LYRICS_VIEW_UNSET = -2
 };
@@ -21,8 +23,7 @@ typedef struct LyricsView {
     int32_t line;
     uint32_t changed_ms;
     char path[LYRICS_VIEW_PATH_CAPACITY];
-    char current[LYRICS_VIEW_TEXT_CAPACITY];
-    char next[LYRICS_VIEW_TEXT_CAPACITY];
+    char rows[LYRICS_VIEW_ROWS][LYRICS_VIEW_TEXT_CAPACITY];
 } LyricsView;
 
 LyricsView *lyrics_view_memory(void);
