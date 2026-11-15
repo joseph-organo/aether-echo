@@ -45,7 +45,7 @@ Status: `device` (works on the player) · `sim` (works in the simulator only) ·
 
 | Item | Status |
 |---|---|
-| Refuse to start on an almost empty battery | todo |
+| Refuse to start on an almost empty battery | done (refuses below 3.5 V without USB power; the boot check already existed, the cutoff now sits above the empty point) |
 | ReplayGain | todo |
 | Browsing while covers build | todo |
 | Faster cover decoding | todo |

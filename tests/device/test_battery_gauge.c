@@ -1,4 +1,5 @@
 #include "check.h"
+#include "core/low_battery.h"
 #include "device/battery_gauge.h"
 
 static uint16_t raw_for(uint32_t millivolts)
@@ -164,11 +165,17 @@ static void unplugging_does_not_raise_the_shown_percent(void)
     CHECK_EQUAL(68, battery_display_update(&display, 68, false));
 }
 
-static void a_boot_below_3400_mv_on_battery_switches_off(void)
+static void a_boot_below_3500_mv_on_battery_switches_off(void)
 {
-    CHECK(battery_boot_cutoff(3399, false));
-    CHECK(!battery_boot_cutoff(3400, false));
+    CHECK(battery_boot_cutoff(3499, false));
+    CHECK(!battery_boot_cutoff(3500, false));
     CHECK(!battery_boot_cutoff(3000, true));
+}
+
+static void a_boot_cutoff_sits_above_the_empty_point_of_the_curve(void)
+{
+    CHECK(BATTERY_BOOT_CUTOFF_MILLIVOLTS > LOW_BATTERY_EMPTY_MV);
+    CHECK(battery_boot_cutoff(LOW_BATTERY_EMPTY_MV, false));
 }
 
 int main(void)
@@ -191,7 +198,8 @@ int main(void)
         TEST_CASE(on_usb_power_the_shown_percent_rises_freely_and_falls_reluctantly),
         TEST_CASE(plugging_in_does_not_drop_the_shown_percent),
         TEST_CASE(unplugging_does_not_raise_the_shown_percent),
-        TEST_CASE(a_boot_below_3400_mv_on_battery_switches_off),
+        TEST_CASE(a_boot_below_3500_mv_on_battery_switches_off),
+        TEST_CASE(a_boot_cutoff_sits_above_the_empty_point_of_the_curve),
     };
     return test_run_all(cases, TEST_CASE_COUNT(cases));
 }
