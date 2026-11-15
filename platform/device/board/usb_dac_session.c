@@ -111,6 +111,11 @@ static void append_format(StringBuilder *line)
     i18n_format(line, STR_USB_FORMAT_VOLUME, arguments, 3);
 }
 
+static int volume_percent(void)
+{
+    return dac_volume * 100 / SETTINGS_VOLUME_MAX;
+}
+
 static void show_state(void)
 {
     char text[NOTICE_CAPACITY];
@@ -125,7 +130,7 @@ static void show_state(void)
     } else {
         append_format(&line);
     }
-    app_show_notice(TITLE, text);
+    app_show_usb(TITLE, text, true, volume_percent());
 }
 
 static void stop_output(void)
@@ -281,7 +286,7 @@ static void start_session(void)
 
 void usb_dac_session_run(void)
 {
-    app_show_notice(TITLE, i18n_text(STR_USB_COMPUTER_FOUND));
+    app_show_usb(TITLE, i18n_text(STR_USB_COMPUTER_FOUND), true, volume_percent());
     app_release_audio();
     board_audio_shut_down();
     uint8_t level = board_audio_volume_level();

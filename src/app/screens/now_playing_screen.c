@@ -695,8 +695,12 @@ static void draw_format(const NowPlayingScreen *now_playing, Canvas *canvas)
         char detail[STATUS_CAPACITY];
         now_playing_detail_text(&now_playing->status, detail, sizeof detail);
         if (detail[0] != '\0') {
-            StringBuilder joined = string_builder_make(stream + strlen(stream),
-                                                       sizeof stream - strlen(stream));
+            size_t stream_len = 0;
+            while (stream[stream_len] != '\0') {
+                stream_len++;
+            }
+            StringBuilder joined = string_builder_make(stream + stream_len,
+                                                       sizeof stream - stream_len);
             string_builder_append(&joined, SEPARATOR);
             string_builder_append(&joined, detail);
         }

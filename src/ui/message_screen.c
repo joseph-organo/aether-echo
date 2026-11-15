@@ -9,8 +9,56 @@
 enum {
     MESSAGE_LINES = 4,
     LINE_CAPACITY = 128,
-    LINE_GAP = 2
+    LINE_GAP = 2,
+    ART_TOP = 26,
+    ART_HEIGHT = 64,
+    ART_GAP = 14,
+    STORAGE_WIDTH = 88,
+    STORAGE_BORDER = 4,
+    BAR_COUNT = 5,
+    BAR_WIDTH = 10,
+    BAR_STEP = 18,
+    LEVEL_WIDTH = 200,
+    LEVEL_HEIGHT = 4,
+    LEVEL_BOTTOM = 18
 };
+
+static const uint8_t BAR_HEIGHTS[BAR_COUNT] = {22, 42, 58, 36, 48};
+
+static void draw_art(Canvas *canvas, const Theme *theme, Rect content, MessageArt art)
+{
+    Color accent = theme->colors.selection_background;
+    int center = content.x + content.width / 2;
+    int top = content.y + ART_TOP;
+    if (art == MESSAGE_ART_STORAGE) {
+        Rect body = {center - STORAGE_WIDTH / 2, top + 6, STORAGE_WIDTH, ART_HEIGHT - 12};
+        canvas_fill_rect(canvas, body, accent);
+        canvas_fill_rect(canvas,
+                         (Rect){body.x + STORAGE_BORDER, body.y + STORAGE_BORDER,
+                                body.width - 2 * STORAGE_BORDER, body.height - 2 * STORAGE_BORDER},
+                         theme->colors.background);
+        canvas_fill_rect(canvas, (Rect){body.x + 12, body.y + body.height - 20, 10, 10}, accent);
+        canvas_fill_rect(canvas, (Rect){body.x + 34, body.y + body.height - 17, 42, 4}, accent);
+        return;
+    }
+    int left = center - (BAR_COUNT * BAR_STEP - (BAR_STEP - BAR_WIDTH)) / 2;
+    for (int bar = 0; bar < BAR_COUNT; bar++) {
+        canvas_fill_rect(canvas,
+                         (Rect){left + bar * BAR_STEP, top + ART_HEIGHT - BAR_HEIGHTS[bar],
+                                BAR_WIDTH, BAR_HEIGHTS[bar]},
+                         accent);
+    }
+}
+
+static void draw_level(Canvas *canvas, const Theme *theme, Rect content, int percent)
+{
+    int filled = LEVEL_WIDTH * (percent < 0 ? 0 : percent > 100 ? 100 : percent) / 100;
+    Rect track = {content.x + (content.width - LEVEL_WIDTH) / 2,
+                  content.y + content.height - LEVEL_BOTTOM, LEVEL_WIDTH, LEVEL_HEIGHT};
+    canvas_fill_rect(canvas, track, theme->colors.divider);
+    canvas_fill_rect(canvas, (Rect){track.x, track.y, filled, track.height},
+                     theme->colors.selection_background);
+}
 
 static ScreenAction handle_key(void *context, KeyEvent event, uint32_t now_ms)
 {
@@ -81,6 +129,14 @@ static void draw(void *context, Canvas *canvas)
     }
     int line_height = font_line_height(style.font) + LINE_GAP;
     int top = content.y + (content.height - count * line_height) / 2;
+    bool art = message->config.art != MESSAGE_ART_NONE && !theme_is_portrait(theme);
+    if (art) {
+        draw_art(canvas, theme, content, message->config.art);
+        top = content.y + ART_TOP + ART_HEIGHT + ART_GAP;
+        if (message->config.art == MESSAGE_ART_DAC) {
+            draw_level(canvas, theme, content, message->config.level_percent);
+        }
+    }
     for (int index = 0; index < count; index++) {
         Rect row = {content.x + padding, top + index * line_height, width, line_height};
         Rect area = label_centered_area(style.font, row, lines[index]);

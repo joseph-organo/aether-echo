@@ -202,7 +202,7 @@ void usb_session_stop_listening(void)
 
 UsbSessionEnd usb_session_run(void)
 {
-    app_show_notice("USB", i18n_text(STR_USB_COMPUTER_FOUND));
+    app_show_usb("USB Storage", i18n_text(STR_USB_COMPUTER_FOUND), false, 0);
     prepare_luns();
     app_release_audio();
     board_audio_shut_down();
@@ -210,8 +210,10 @@ UsbSessionEnd usb_session_run(void)
     UsbSessionEnd end = USB_SESSION_NO_HOST;
     if (usb_wait_for_host(&port, HOST_TIMEOUT_MS)) {
         usb_fallback_start(&fallback, port.high_speed_allowed, hal_clock_milliseconds());
-        app_show_notice("USB", i18n_text(card_present ? STR_USB_CONNECTED_EJECT_BOTH
-                                                      : STR_USB_CONNECTED_EJECT_ONE));
+        app_show_usb("USB Storage",
+                     i18n_text(card_present ? STR_USB_CONNECTED_EJECT_BOTH
+                                            : STR_USB_CONNECTED_EJECT_ONE),
+                     false, 0);
         end = serve();
     }
     usb_session_stop_listening();

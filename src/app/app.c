@@ -1007,15 +1007,28 @@ bool app_charging(void)
     return app.charging;
 }
 
-void app_show_notice(const char *title, const char *message)
+static void show_message(MessageConfig config)
 {
-    MessageConfig config = {.title = title, .message = message, .theme = current_theme()};
     Screen *screen = message_screen_init(&app.notice, config);
     if (!app.display_on) {
         set_display(true);
     }
     render((FrameDrawer){.draw = draw_notice, .context = screen}, false);
     light_after_first_frame();
+}
+
+void app_show_notice(const char *title, const char *message)
+{
+    show_message((MessageConfig){.title = title, .message = message, .theme = current_theme()});
+}
+
+void app_show_usb(const char *title, const char *message, bool dac, int level_percent)
+{
+    show_message((MessageConfig){.title = title,
+                                 .message = message,
+                                 .theme = current_theme(),
+                                 .art = dac ? MESSAGE_ART_DAC : MESSAGE_ART_STORAGE,
+                                 .level_percent = level_percent});
 }
 
 void app_show_splash(void)

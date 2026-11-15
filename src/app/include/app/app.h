@@ -11,6 +11,7 @@ const FrameStats *app_frame_stats(void);
 const char *app_screen_title(void);
 int app_screen_depth(void);
 void app_show_notice(const char *title, const char *message);
+void app_show_usb(const char *title, const char *message, bool dac, int level_percent);
 void app_wake(void);
 void app_release_audio(void);
 void app_remember_dac_volume(uint8_t level);
